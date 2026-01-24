@@ -4,14 +4,14 @@
 
 @layer base {
   :root {
-    --background: 80 60% 95%;
-    --foreground: 0 0% 10%;
-    --card: 80 60% 95%;
-    --card-foreground: 0 0% 10%;
-    --popover: 80 60% 95%;
-    --popover-foreground: 0 0% 10%;
+    --background: 47 100% 97%;
+    --foreground: 0 0% 0%;
+    --card: 47 100% 97%;
+    --card-foreground: 0 0% 0%;
+    --popover: 47 100% 97%;
+    --popover-foreground: 0 0% 0%;
     --primary: 131 31% 48%;
-    --primary-foreground: 80 60% 98%;
+    --primary-foreground: 47 100% 98%;
     --secondary: 131 20% 91%;
     --secondary-foreground: 0 0% 10%;
     --muted: 131 20% 91%;
@@ -31,13 +31,13 @@
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
 
-    --sidebar-background: 0 0% 8%;
-    --sidebar-foreground: 80 40% 95%;
+    --sidebar-background: 47 100% 97%;
+    --sidebar-foreground: 0 0% 0%;
     --sidebar-primary: 131 31% 48%;
-    --sidebar-primary-foreground: 80 60% 98%;
-    --sidebar-accent: 0 0% 15%;
-    --sidebar-accent-foreground: 80 40% 95%;
-    --sidebar-border: 0 0% 15%;
+    --sidebar-primary-foreground: 47 100% 98%;
+    --sidebar-accent: 131 20% 91%;
+    --sidebar-accent-foreground: 0 0% 10%;
+    --sidebar-border: 131 20% 85%;
     --sidebar-ring: 131 31% 48%;
   }
 }
@@ -74,7 +74,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800"><rect fill="hsl(0 0% 100% / 0.02)" width="800" height="800"/><g fill="hsl(0 0% 100% / 0.03)"><circle r="1" cx="300" cy="400"/><circle r="1" cx="500" cy="400"/><circle r="1.5" cx="400" cy="300"/><circle r="1.5" cx="400" cy="500"/></g></svg>');
+    background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800"><rect fill="hsl(0 0% 100% / 0.02)" width="800" height="800"/><g fill="hsl(0 0% 100% / 0.03)"><circle r="1" cx="300" cy="400"/><circle r="1.5" cx="400" cy="300"/><circle r="1.5" cx="400" cy="500"/></g></svg>');
     z-index: -1;
   }
 }

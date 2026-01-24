@@ -10,9 +10,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { Allergen } from "@/lib/types";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useGastro } from "@/contexts/GastroContext";
 import ConfirmDialog from "../shared/confirm-dialog";
+import { Skeleton } from "../ui/skeleton";
 
 type ColumnsProps = {
   onEdit: (allergen: Allergen) => void;
@@ -48,6 +49,15 @@ export const columns = ({ onEdit }: ColumnsProps): ColumnDef<Allergen>[] => [
       const allergen = row.original;
       const { deleteAllergen, isAllergenInUse } = useGastro();
       const [isConfirmOpen, setConfirmOpen] = useState(false);
+      const [mounted, setMounted] = useState(false);
+
+      useEffect(() => {
+        setMounted(true);
+      }, []);
+
+      if (!mounted) {
+        return <Skeleton className="h-8 w-8" />;
+      }
 
       const inUse = isAllergenInUse(allergen.id);
       const description = inUse

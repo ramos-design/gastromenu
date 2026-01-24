@@ -11,9 +11,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import type { Dish } from "@/lib/types";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useGastro } from "@/contexts/GastroContext";
 import ConfirmDialog from "../shared/confirm-dialog";
+import { Skeleton } from "../ui/skeleton";
 
 type ColumnsProps = {
   onEdit: (dish: Dish) => void;
@@ -71,6 +72,15 @@ export const columns = ({ onEdit }: ColumnsProps): ColumnDef<Dish>[] => [
       const dish = row.original;
       const { deleteDish } = useGastro();
       const [isConfirmOpen, setConfirmOpen] = useState(false);
+      const [mounted, setMounted] = useState(false);
+      
+      useEffect(() => {
+        setMounted(true);
+      }, []);
+
+      if (!mounted) {
+        return <Skeleton className="h-8 w-8" />;
+      }
 
       return (
         <>

@@ -58,17 +58,17 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
-      <div className="flex items-center gap-4">
-        <Button asChild size="lg">
+      <div className="flex flex-col md:flex-row items-center gap-4">
+        <Button asChild size="lg" className="w-full md:w-auto">
           <Link href="/jidla?action=add">
             <CookingPot className="mr-2 h-4 w-4" />
             Přidat jídlo
           </Link>
         </Button>
-        <Button asChild variant="secondary" size="lg">
+        <Button asChild variant="secondary" size="lg" className="w-full md:w-auto">
           <Link href="/sestav-menu">
             <ListPlus className="mr-2 h-4 w-4" />
-            Sestavit týdenní menu
+            Sestavit menu
           </Link>
         </Button>
       </div>

@@ -13,12 +13,23 @@ import { DishFormSheet } from '@/components/dishes/dish-form-sheet';
 import { DishesDataTable } from '@/components/dishes/data-table';
 import { columns } from '@/components/dishes/columns';
 import { Card } from '@/components/ui/card';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Badge } from '@/components/ui/badge';
+import { DishActions } from '@/components/dishes/dish-actions';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type FilterType = 'vše' | DishType;
 
 export default function JidlaPage() {
   const { dishes } = useGastro();
   const searchParams = useSearchParams();
+  const isMobile = useIsMobile();
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   const [isSheetOpen, setSheetOpen] = useState(false);
   const [editingDish, setEditingDish] = useState<Dish | null>(null);
@@ -69,6 +80,65 @@ export default function JidlaPage() {
 
   // Pass handleEdit to the columns
   const tableColumns = useMemo(() => columns({ onEdit: handleEdit }), [handleEdit]);
+  
+  const formattedPrice = (price: number) => new Intl.NumberFormat("cs-CZ", {
+    style: "currency",
+    currency: "CZK",
+  }).format(price);
+
+  const renderDishes = () => {
+    if (!hasMounted) {
+      return (
+        <div className="space-y-2">
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+        </div>
+      );
+    }
+
+    if (isMobile) {
+      if (filteredDishes.length === 0) {
+        return <p className="text-center text-muted-foreground py-10">Žádná jídla nenalezena.</p>;
+      }
+      return (
+        <Accordion type="single" collapsible className="w-full">
+          {filteredDishes.map((dish) => (
+            <AccordionItem value={dish.id} key={dish.id}>
+              <AccordionTrigger className="text-left font-medium">
+                {dish.name_cz}
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="flex flex-col gap-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Cena:</span>
+                    <span className="font-medium">{formattedPrice(dish.price)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Typ:</span>
+                    <span>{dish.type}</span>
+                  </div>
+                   <div className="flex justify-between items-start">
+                    <span className="text-muted-foreground pt-1">Alergeny:</span>
+                    <div className="flex flex-wrap gap-1 justify-end max-w-[70%]">
+                      {dish.allergenIds.map(id => (
+                        <Badge key={id} variant="secondary">{id}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex justify-end pt-2">
+                     <DishActions dish={dish} onEdit={handleEdit} />
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          ))}
+        </Accordion>
+      );
+    }
+
+    return <DishesDataTable columns={tableColumns} data={filteredDishes} />;
+  }
 
   return (
     <div className="space-y-6">
@@ -104,7 +174,7 @@ export default function JidlaPage() {
           </ToggleGroup>
         </div>
 
-        <DishesDataTable columns={tableColumns} data={filteredDishes} />
+        {renderDishes()}
       </Card>
 
       <DishFormSheet

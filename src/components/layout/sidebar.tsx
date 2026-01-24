@@ -41,7 +41,7 @@ export default function AppSidebar() {
                 tooltip={label}
                 className="justify-start h-16 text-base rounded-xl backdrop-blur-lg border border-sidebar-border/30 shadow-lg bg-sidebar-accent/50 hover:!bg-sidebar-accent data-[active=true]:!bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground"
               >
-                <Icon className="w-6 h-6" />
+                <Icon className="w-8 h-8" />
                 <span>{label}</span>
               </SidebarMenuButton>
             </Link>

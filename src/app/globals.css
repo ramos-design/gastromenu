@@ -4,14 +4,14 @@
 
 @layer base {
   :root {
-    --background: 60 44% 96%;
+    --background: 80 60% 95%;
     --foreground: 0 0% 10%;
-    --card: 60 44% 96%;
+    --card: 80 60% 95%;
     --card-foreground: 0 0% 10%;
-    --popover: 60 44% 96%;
+    --popover: 80 60% 95%;
     --popover-foreground: 0 0% 10%;
     --primary: 131 31% 48%;
-    --primary-foreground: 60 44% 98%;
+    --primary-foreground: 80 60% 98%;
     --secondary: 131 20% 91%;
     --secondary-foreground: 0 0% 10%;
     --muted: 131 20% 91%;
@@ -32,42 +32,11 @@
     --chart-5: 27 87% 67%;
 
     --sidebar-background: 0 0% 8%;
-    --sidebar-foreground: 60 40% 95%;
+    --sidebar-foreground: 80 40% 95%;
     --sidebar-primary: 131 31% 48%;
-    --sidebar-primary-foreground: 60 44% 98%;
+    --sidebar-primary-foreground: 80 60% 98%;
     --sidebar-accent: 0 0% 15%;
-    --sidebar-accent-foreground: 60 40% 95%;
-    --sidebar-border: 0 0% 15%;
-    --sidebar-ring: 131 31% 48%;
-  }
-
-  .dark {
-    --background: 0 0% 8%;
-    --foreground: 60 40% 95%;
-    --card: 0 0% 8%;
-    --card-foreground: 60 40% 95%;
-    --popover: 0 0% 8%;
-    --popover-foreground: 60 40% 95%;
-    --primary: 131 31% 48%;
-    --primary-foreground: 60 44% 98%;
-    --secondary: 0 0% 15%;
-    --secondary-foreground: 60 40% 95%;
-    --muted: 0 0% 15%;
-    --muted-foreground: 60 20% 65%;
-    --accent: 131 31% 48%;
-    --accent-foreground: 60 40% 95%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 15%;
-    --input: 0 0% 15%;
-    --ring: 131 31% 48%;
-
-    --sidebar-background: 0 0% 8%;
-    --sidebar-foreground: 60 40% 95%;
-    --sidebar-primary: 131 31% 48%;
-    --sidebar-primary-foreground: 60 44% 98%;
-    --sidebar-accent: 0 0% 15%;
-    --sidebar-accent-foreground: 60 40% 95%;
+    --sidebar-accent-foreground: 80 40% 95%;
     --sidebar-border: 0 0% 15%;
     --sidebar-ring: 131 31% 48%;
   }
@@ -98,12 +67,6 @@
     opacity: 0.8;
   }
 
-  .dark body::before {
-    background-image:
-      radial-gradient(circle at 80% 20%, hsl(var(--primary)/0.2), transparent 40%),
-      radial-gradient(circle at 20% 80%, hsl(var(--accent)/0.2), transparent 40%);
-  }
-
   body::after {
     content: '';
     position: fixed;
@@ -119,8 +82,5 @@
 @layer components {
   .glass-card {
     @apply bg-card/60 backdrop-blur-lg border border-black/5 rounded-xl shadow-lg;
-  }
-  .dark .glass-card {
-    @apply bg-card/40 border-white/5;
   }
 }

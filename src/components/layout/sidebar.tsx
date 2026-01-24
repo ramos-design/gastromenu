@@ -34,16 +34,16 @@ export default function AppSidebar() {
           </h1>
         </div>
       </SidebarHeader>
-      <SidebarMenu className="flex-1 p-4">
+      <SidebarMenu className="flex-1 p-4 space-y-3">
         {menuItems.map(({ href, label, icon: Icon }) => (
           <SidebarMenuItem key={href}>
             <Link href={href} passHref>
               <SidebarMenuButton
                 isActive={pathname === href}
                 tooltip={label}
-                className="justify-start"
+                className="justify-start h-16 text-base rounded-xl backdrop-blur-lg border border-sidebar-border/30 shadow-lg bg-sidebar-accent/50 hover:!bg-sidebar-accent data-[active=true]:!bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground"
               >
-                <Icon className="w-5 h-5" />
+                <Icon className="w-6 h-6" />
                 <span>{label}</span>
               </SidebarMenuButton>
             </Link>

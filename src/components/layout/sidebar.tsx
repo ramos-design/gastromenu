@@ -10,6 +10,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarFooter,
+  useSidebar,
 } from '@/components/ui/sidebar';
 
 const menuItems = [
@@ -21,6 +22,7 @@ const menuItems = [
 
 export default function AppSidebar() {
   const pathname = usePathname();
+  const { setOpenMobile } = useSidebar();
 
   return (
     <Sidebar>
@@ -40,6 +42,7 @@ export default function AppSidebar() {
                 isActive={pathname === href}
                 tooltip={label}
                 className="justify-start h-16 px-4 text-base rounded-xl backdrop-blur-lg border border-sidebar-border/30 shadow-lg bg-sidebar-accent/50 hover:!bg-sidebar-accent data-[active=true]:!bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground"
+                onClick={() => setOpenMobile(false)}
               >
                 <Icon className="w-10 h-10 ml-2" />
                 <span>{label}</span>

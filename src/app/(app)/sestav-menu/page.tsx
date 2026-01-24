@@ -220,9 +220,9 @@ export default function SestavMenuPage() {
                 {previewMenu.map(dish => (
                   <div key={dish.id} className="p-4 border rounded-lg bg-background/50">
                     <p className="font-semibold">{lang === 'cz' ? dish.name_cz : dish.name_en}</p>
-                    <div className="flex justify-between items-center text-sm text-muted-foreground">
-                      <p>{dish.price} Kč</p>
-                      <div className="flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start text-sm text-muted-foreground mt-2">
+                      <p className="mb-1 sm:mb-0">{dish.price} Kč</p>
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span>Alergeny:</span>
                         {dish.allergenIds.map(id => <Badge key={id} variant="secondary">{id}</Badge>)}
                       </div>

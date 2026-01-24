@@ -74,7 +74,7 @@ export default function JidlaPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-            <h1 className="text-3xl font-bold tracking-tight">Jídla</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Seznam jídel</h1>
             <p className="text-muted-foreground">Spravujte svá jídla a recepty.</p>
         </div>
         <Button onClick={handleAddClick} className="w-full md:w-auto">

@@ -168,9 +168,9 @@ export default function JidlaPage() {
             onValueChange={(value: FilterType) => value && setFilter(value)}
             className="w-full md:w-auto"
           >
-            <ToggleGroupItem value="vše" className="flex-1">Vše</ToggleGroupItem>
-            <ToggleGroupItem value="Polévka" className="flex-1">Polévky</ToggleGroupItem>
-            <ToggleGroupItem value="Hlavní jídlo" className="flex-1">Hlavní jídla</ToggleGroupItem>
+            <ToggleGroupItem value="vše">Vše</ToggleGroupItem>
+            <ToggleGroupItem value="Polévka">Polévky</ToggleGroupItem>
+            <ToggleGroupItem value="Hlavní jídlo">Hlavní jídla</ToggleGroupItem>
           </ToggleGroup>
         </div>
 

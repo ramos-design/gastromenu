@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     }));
 
     // Axios will throw an error for non-2xx responses
-    const response = await axios.get(WEBHOOK_URL, { params: { menu: exportData } });
+    const response = await axios.get(WEBHOOK_URL, { params: { menu: JSON.stringify(exportData) } });
     
     return NextResponse.json({ message: 'Menu exported successfully', data: response.data });
 

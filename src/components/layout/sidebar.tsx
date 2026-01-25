@@ -1,7 +1,6 @@
 "use client";
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { CookingPot, LayoutDashboard, ListPlus, Sprout, Download, History } from 'lucide-react';
 import {
@@ -32,23 +31,21 @@ export default function AppSidebar() {
       <SidebarHeader className="p-4">
         <Link href="/dashboard" className="block">
             <div className="group-data-[collapsible=icon]:hidden">
-              <Image
+              <img
                 src="/LOGO.png"
                 alt="Logo GastroDashboard"
                 width={200}
                 height={60}
                 className="w-full h-auto"
-                priority
               />
             </div>
             <div className="hidden group-data-[collapsible=icon]:block">
-              <Image
+              <img
                 src="/LOGO.png"
                 alt="Logo GastroDashboard"
                 width={40}
                 height={40}
                 className="mx-auto"
-                priority
               />
             </div>
         </Link>

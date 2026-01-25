@@ -6,8 +6,7 @@ import { useGastro } from '@/contexts/GastroContext';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { History, Loader2, Trash2 } from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton';
+import { History, Trash2 } from 'lucide-react';
 import {
   Accordion,
   AccordionContent,
@@ -19,7 +18,7 @@ import ConfirmDialog from '@/components/shared/confirm-dialog';
 
 
 export default function HistoriePage() {
-  const { menuHistory, allergens, isLoading, deleteMenuFromHistory } = useGastro();
+  const { menuHistory, allergens, deleteMenuFromHistory } = useGastro();
   const [itemToDelete, setItemToDelete] = useState<MenuHistoryItem | null>(null);
 
   const formatDate = (dateString: string) => {
@@ -49,22 +48,6 @@ export default function HistoriePage() {
     }
   };
   
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Historie menu</h1>
-          <p className="text-muted-foreground">Prohlédněte si historii vygenerovaných menu.</p>
-        </div>
-         <div className="space-y-4">
-          <Skeleton className="w-full h-24" />
-          <Skeleton className="w-full h-24" />
-          <Skeleton className="w-full h-24" />
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-6">
       <div>
@@ -72,7 +55,7 @@ export default function HistoriePage() {
         <p className="text-muted-foreground">Prohlédněte si historii vygenerovaných menu.</p>
       </div>
 
-      {menuHistory.length === 0 ? (
+      {!menuHistory || menuHistory.length === 0 ? (
         <Card className="glass-card flex flex-col items-center justify-center p-12">
           <History className="w-16 h-16 text-muted-foreground mb-4" />
           <h3 className="text-xl font-semibold">Žádná historie</h3>

@@ -1,19 +1,23 @@
 "use client";
 
-import React, { createContext, useContext, ReactNode, useMemo, useEffect } from 'react';
+import React, { createContext, useContext, ReactNode, useMemo } from 'react';
 import type { Allergen, Dish, MenuHistoryItem } from '@/lib/types';
-import {
-  useCollection,
-  useFirebase,
-  useMemoFirebase,
-  addDocumentNonBlocking,
-  updateDocumentNonBlocking,
-  deleteDocumentNonBlocking,
-  setDocumentNonBlocking,
-} from '@/firebase';
-import { collection, doc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import useLocalStorage from '@/hooks/use-local-storage';
-import { initialAllergens } from '@/lib/data';
+import { initialAllergens as defaultAllergens } from '@/lib/data';
+
+// Helper to generate a unique ID
+const generateId = () => {
+    if (typeof window !== 'undefined' && window.crypto) {
+        return window.crypto.randomUUID();
+    }
+    // Fallback for older environments
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+};
+
+const initialAllergensWithIds: Allergen[] = defaultAllergens.map(a => ({ ...a, id: generateId() }));
 
 interface GastroContextType {
   allergens: Allergen[];
@@ -36,116 +40,72 @@ interface GastroContextType {
 const GastroContext = createContext<GastroContextType | undefined>(undefined);
 
 export const GastroProvider = ({ children }: { children: ReactNode }) => {
-  const { firestore } = useFirebase();
-
-  const allergensRef = useMemoFirebase(() => firestore && collection(firestore, 'allergens'), [firestore]);
-  const dishesRef = useMemoFirebase(() => firestore && collection(firestore, 'foods'), [firestore]);
-  const menuHistoryRef = useMemoFirebase(() => firestore && collection(firestore, 'weekly_menus'), [firestore]);
-
-  const { data: allergensData, isLoading: allergensLoading } = useCollection<Allergen>(allergensRef);
-  const { data: dishes, isLoading: dishesLoading } = useCollection<Dish>(dishesRef);
-  const { data: menuHistoryData, isLoading: menuHistoryLoading } = useCollection<MenuHistoryItem>(menuHistoryRef);
-
-  const allergens = useMemo(() => {
-    if (!allergensData) return [];
-    return [...allergensData].sort((a, b) => a.number - b.number);
-  }, [allergensData]);
-  
-  const menuHistory = useMemo(() => {
-    if (!menuHistoryData) return [];
-    return [...menuHistoryData].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [menuHistoryData]);
-
+  const [allergens, setAllergens] = useLocalStorage<Allergen[]>('allergens', initialAllergensWithIds);
+  const [dishes, setDishes] = useLocalStorage<Dish[]>('dishes', []);
+  const [menuHistory, setMenuHistory] = useLocalStorage<MenuHistoryItem[]>('menuHistory', []);
   const [currentMenu, setCurrentMenu] = useLocalStorage<Dish[] | null>('currentMenu', null);
-
-  const isLoading = useMemo(() => allergensLoading || dishesLoading || menuHistoryLoading, [allergensLoading, dishesLoading, menuHistoryLoading]);
-
-  // Seed initial allergens if the collection is empty
-  useEffect(() => {
-    if (firestore && !allergensLoading && allergensData && allergensData.length === 0) {
-      const batch = writeBatch(firestore);
-      const allergensCol = collection(firestore, 'allergens');
-      initialAllergens.forEach((allergen) => {
-        const docRef = doc(allergensCol); // Create a new doc with a generated id
-        batch.set(docRef, { ...allergen, createdAt: serverTimestamp() });
-      });
-      batch.commit().catch(error => {
-        console.error("Error seeding allergens: ", error);
-      });
-    }
-  }, [firestore, allergensData, allergensLoading]);
+  
+  const sortedAllergens = useMemo(() => {
+    return [...allergens].sort((a, b) => a.number - b.number);
+  }, [allergens]);
+  
+  const sortedMenuHistory = useMemo(() => {
+    if (!menuHistory) return [];
+    return [...menuHistory].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [menuHistory]);
 
   const addDish = (dish: Omit<Dish, 'id'>) => {
-    if (!dishesRef) return;
-    addDocumentNonBlocking(dishesRef, { ...dish, createdAt: serverTimestamp() });
+    setDishes(prev => [...prev, { ...dish, id: generateId() }]);
   };
 
   const updateDish = (updatedDish: Dish) => {
-    if (!firestore) return;
-    const dishRef = doc(firestore, 'foods', updatedDish.id);
-    const { id, ...data } = updatedDish;
-    updateDocumentNonBlocking(dishRef, data);
+    setDishes(prev => prev.map(d => d.id === updatedDish.id ? updatedDish : d));
   };
 
   const deleteDish = (id: string) => {
-    if (!firestore) return;
-    const dishRef = doc(firestore, 'foods', id);
-    deleteDocumentNonBlocking(dishRef);
+    setDishes(prev => prev.filter(d => d.id !== id));
   };
 
   const addAllergen = (allergen: Omit<Allergen, 'id'>) => {
-    if (!allergensRef) return;
-    addDocumentNonBlocking(allergensRef, { ...allergen, createdAt: serverTimestamp() });
+    setAllergens(prev => [...prev, { ...allergen, id: generateId() }]);
   };
 
   const updateAllergen = (updatedAllergen: Allergen) => {
-    if (!firestore) return;
-    const allergenRef = doc(firestore, 'allergens', updatedAllergen.id);
-    const { id, ...data } = updatedAllergen;
-    updateDocumentNonBlocking(allergenRef, data);
+    setAllergens(prev => prev.map(a => a.id === updatedAllergen.id ? updatedAllergen : a));
   };
 
-  const deleteAllergen = async (id: string) => {
-    if (!firestore || !dishes) return;
-    const allergenRef = doc(firestore, 'allergens', id);
-    deleteDocumentNonBlocking(allergenRef);
-
-    // Also remove the allergen from all dishes
-    const batch = writeBatch(firestore);
-    const dishesToUpdate = dishes.filter(d => d.allergenIds.includes(id));
-    dishesToUpdate.forEach(dish => {
-      const dishRef = doc(firestore, 'foods', dish.id);
-      const newAllergenIds = dish.allergenIds.filter(allergenId => allergenId !== id);
-      batch.update(dishRef, { allergenIds: newAllergenIds });
-    });
-    await batch.commit();
+  const deleteAllergen = (id: string) => {
+    setAllergens(prev => prev.filter(a => a.id !== id));
+    // Also remove from dishes
+    setDishes(prevDishes => prevDishes.map(dish => ({
+        ...dish,
+        allergenIds: dish.allergenIds.filter(allergenId => allergenId !== id)
+    })));
   };
 
   const isAllergenInUse = (id: string) => {
-    return dishes?.some(dish => dish.allergenIds.includes(id)) ?? false;
+    return dishes.some(dish => dish.allergenIds.includes(id));
   };
 
   const addMenuToHistory = (dishes: Dish[]) => {
-    if (!menuHistoryRef) return;
-    const newHistoryItem = {
+    const newHistoryItem: MenuHistoryItem = {
+      id: generateId(),
       date: new Date().toISOString(),
       dishes: dishes,
     };
-    addDocumentNonBlocking(menuHistoryRef, newHistoryItem);
+    setMenuHistory(prev => [newHistoryItem, ...(prev || [])]);
   };
 
   const deleteMenuFromHistory = (id: string) => {
-    if (!firestore) return;
-    const menuRef = doc(firestore, 'weekly_menus', id);
-    deleteDocumentNonBlocking(menuRef);
+    setMenuHistory(prev => (prev || []).filter(item => item.id !== id));
   };
 
   const value = {
-    allergens,
-    dishes: dishes || [],
+    allergens: sortedAllergens,
+    dishes,
     currentMenu,
-    menuHistory: menuHistory || [],
-    isLoading,
+    menuHistory: sortedMenuHistory,
+    isLoading: false, // Data is loaded synchronously from local storage
     setCurrentMenu,
     addDish,
     updateDish,

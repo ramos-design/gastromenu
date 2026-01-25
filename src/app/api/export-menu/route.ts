@@ -13,15 +13,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Neplatná data menu.' }, { status: 400 });
     }
 
-    const exportData = menuData.map(dish => ({
-        name_cz: dish.name_cz,
-        name_en: dish.name_en,
-        allergenIds: dish.allergenIds,
-        price: dish.price,
-    }));
+    const params: { [key: string]: string | number } = {};
+    menuData.forEach((dish, index) => {
+        params[`dish_${index + 1}_name_cz`] = dish.name_cz;
+        params[`dish_${index + 1}_name_en`] = dish.name_en;
+        params[`dish_${index + 1}_price`] = dish.price;
+        params[`dish_${index + 1}_allergens`] = dish.allergenIds.join(',');
+    });
 
     // Axios will throw an error for non-2xx responses
-    const response = await axios.get(WEBHOOK_URL, { params: { menu: JSON.stringify(exportData) } });
+    const response = await axios.get(WEBHOOK_URL, { params });
     
     return NextResponse.json({ message: 'Menu exported successfully', data: response.data });
 

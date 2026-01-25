@@ -29,6 +29,7 @@ interface GastroContextType {
   updateAllergen: (allergen: Allergen) => void;
   deleteAllergen: (id: string) => void;
   addMenuToHistory: (dishes: Dish[]) => void;
+  deleteMenuFromHistory: (id: string) => void;
   isAllergenInUse: (id: string) => boolean;
 }
 
@@ -43,12 +44,17 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
 
   const { data: allergensData, isLoading: allergensLoading } = useCollection<Allergen>(allergensRef);
   const { data: dishes, isLoading: dishesLoading } = useCollection<Dish>(dishesRef);
-  const { data: menuHistory, isLoading: menuHistoryLoading } = useCollection<MenuHistoryItem>(menuHistoryRef);
+  const { data: menuHistoryData, isLoading: menuHistoryLoading } = useCollection<MenuHistoryItem>(menuHistoryRef);
 
   const allergens = useMemo(() => {
     if (!allergensData) return [];
     return [...allergensData].sort((a, b) => a.number - b.number);
   }, [allergensData]);
+  
+  const menuHistory = useMemo(() => {
+    if (!menuHistoryData) return [];
+    return [...menuHistoryData].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [menuHistoryData]);
 
   const [currentMenu, setCurrentMenu] = useLocalStorage<Dish[] | null>('currentMenu', null);
 
@@ -128,6 +134,12 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
     addDocumentNonBlocking(menuHistoryRef, newHistoryItem);
   };
 
+  const deleteMenuFromHistory = (id: string) => {
+    if (!firestore) return;
+    const menuRef = doc(firestore, 'weekly_menus', id);
+    deleteDocumentNonBlocking(menuRef);
+  };
+
   const value = {
     allergens,
     dishes: dishes || [],
@@ -142,6 +154,7 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
     updateAllergen,
     deleteAllergen,
     addMenuToHistory,
+    deleteMenuFromHistory,
     isAllergenInUse
   };
 

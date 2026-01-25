@@ -51,11 +51,18 @@ export default function ExportPage() {
                 body: JSON.stringify({ menu: currentMenu }),
             });
 
-            const data = await response.json();
-
             if (!response.ok) {
-                throw new Error(data.message || 'Nastala chyba při generování PDF.');
+                let errorMessage = 'Nastala chyba při generování PDF.';
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.message || errorMessage;
+                } catch (e) {
+                    errorMessage = response.statusText || errorMessage;
+                }
+                throw new Error(errorMessage);
             }
+
+            const data = await response.json();
 
             if (!data.imageUrl) {
               throw new Error('Webhook nevrátil obrázek.');
@@ -70,10 +77,7 @@ export default function ExportPage() {
 
         } catch (error) {
              console.error("Failed to generate PDF:", error);
-             let message = 'Neznámá chyba';
-             if (error instanceof Error) {
-                 message = error.message;
-             }
+             const message = error instanceof Error ? error.message : 'Neznámá chyba';
              toast({
                 variant: "destructive",
                 title: "Chyba při generování",
@@ -88,6 +92,29 @@ export default function ExportPage() {
         }, 1500);
     }
   }
+
+  const handleDownload = async () => {
+    if (!generatedPdfImage) return;
+    try {
+        const response = await fetch(generatedPdfImage);
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', 'menu.png');
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode?.removeChild(link);
+        window.URL.revokeObjectURL(url);
+    } catch (error) {
+        console.error("Chyba při stahování obrázku:", error);
+        toast({
+            variant: "destructive",
+            title: "Chyba při stahování",
+            description: "Obrázek se nepodařilo stáhnout.",
+        });
+    }
+  };
 
   const czPostImage = PlaceHolderImages.find(p => p.id === 'cz-post-placeholder');
   const enPostImage = PlaceHolderImages.find(p => p.id === 'en-post-placeholder');
@@ -124,10 +151,8 @@ export default function ExportPage() {
                           <Image src={generatedPdfImage} alt="Vygenerované menu pro tisk" width={800} height={1128} className="rounded-lg border shadow-md w-full h-auto" />
                         </CardContent>
                         <CardFooter>
-                          <Button asChild>
-                            <a href={generatedPdfImage} download="menu.png">
-                                <Download className="mr-2 h-4 w-4" /> Stáhnout obrázek
-                            </a>
+                          <Button onClick={handleDownload}>
+                              <Download className="mr-2 h-4 w-4" /> Stáhnout obrázek
                           </Button>
                         </CardFooter>
                       </Card>

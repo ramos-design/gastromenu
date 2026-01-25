@@ -27,6 +27,7 @@ export default function ExportPage() {
   const [lang, setLang] = useState<'cz' | 'en'>('cz');
   const [output, setOutput] = useState<MenuOutput>({ type: null, loading: false, success: false });
   const [generatedPdfImage, setGeneratedPdfImage] = useState<string | null>(null);
+  const [isPreviewVisible, setIsPreviewVisible] = useState(true);
 
   const sortedMenu = useMemo(() => {
     if (!currentMenu) return [];
@@ -38,6 +39,7 @@ export default function ExportPage() {
   }, [currentMenu]);
 
   const handleGenerate = async (type: 'pdf' | 'post' | 'web') => {
+    setIsPreviewVisible(false);
     setOutput({ type: type, loading: true, success: false });
     setGeneratedPdfImage(null);
 
@@ -222,6 +224,7 @@ export default function ExportPage() {
         <h1 className="text-3xl font-bold tracking-tight">Export menu</h1>
         <p className="text-muted-foreground">Zkontrolujte sestavené menu a vygenerujte výstupy.</p>
       </div>
+      {isPreviewVisible && (
       <Card className="glass-card">
         <CardHeader>
           <div className="flex justify-between items-center">
@@ -256,6 +259,7 @@ export default function ExportPage() {
           </div>
         </CardContent>
       </Card>
+      )}
       
       <Separator />
 

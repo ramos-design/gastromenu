@@ -10,26 +10,66 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Download, FileText, Globe, Image as ImageIcon, Pilcrow } from 'lucide-react';
+import { Download, FileText, Globe, Image as ImageIcon, Pilcrow, CheckCircle2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { useToast } from '@/hooks/use-toast';
 
 type MenuOutput = {
   type: 'pdf' | 'post' | 'web' | null;
   loading: boolean;
+  success: boolean;
 };
 
 export default function ExportPage() {
   const { currentMenu } = useGastro();
+  const { toast } = useToast();
   const [lang, setLang] = useState<'cz' | 'en'>('cz');
-  const [output, setOutput] = useState<MenuOutput>({ type: null, loading: false });
+  const [output, setOutput] = useState<MenuOutput>({ type: null, loading: false, success: false });
 
-  const handleGenerate = (type: 'pdf' | 'post' | 'web') => {
-    setOutput({ type: type, loading: true });
-    // Simulate generation
-    setTimeout(() => {
-      setOutput({ type: type, loading: false });
-    }, 1500);
+  const handleGenerate = async (type: 'pdf' | 'post' | 'web') => {
+    setOutput({ type: type, loading: true, success: false });
+
+    if (type === 'pdf') {
+        try {
+            const response = await fetch('/api/export-menu', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ menu: currentMenu }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Nastala chyba při odesílání dat.');
+            }
+
+            setOutput({ type: type, loading: false, success: true });
+            toast({
+                title: "Úspěšně odesláno",
+                description: "Menu bylo úspěšně odesláno ke generování.",
+            });
+
+        } catch (error) {
+             console.error("Failed to generate PDF:", error);
+             let message = 'Neznámá chyba';
+             if (error instanceof Error) {
+                 message = error.message;
+             }
+             toast({
+                variant: "destructive",
+                title: "Chyba při generování",
+                description: message,
+             });
+             setOutput({ type: type, loading: false, success: false });
+        }
+    } else {
+        // Simulate other generation types
+        setTimeout(() => {
+            setOutput({ type: type, loading: false, success: true });
+        }, 1500);
+    }
   }
 
   const czPostImage = PlaceHolderImages.find(p => p.id === 'cz-post-placeholder');
@@ -49,55 +89,62 @@ export default function ExportPage() {
         </Card>
       );
     }
-
-    switch (output.type) {
-      case 'pdf':
-        return (
-          <Card className="glass-card">
-            <CardHeader><CardTitle>Výstup: PDF</CardTitle></CardHeader>
-            <CardContent className="flex flex-col items-center justify-center gap-4 p-8 bg-muted/30 rounded-lg">
-                <FileText className="w-16 h-16 text-muted-foreground" />
-                <p className="text-muted-foreground">Náhled PDF souboru</p>
-            </CardContent>
-            <CardFooter className="pt-6">
-                <Button><Download className="mr-2 h-4 w-4" /> Stáhnout PDF</Button>
-            </CardFooter>
-          </Card>
-        );
-      case 'post':
-        return (
-          <Card className="glass-card">
-            <CardHeader><CardTitle>Výstup: Příspěvky na sociální sítě</CardTitle></CardHeader>
-            <CardContent className="grid md:grid-cols-2 gap-4">
-              {czPostImage && (
-                <div className="space-y-2">
-                    <Image data-ai-hint="food post" src={czPostImage.imageUrl} alt="CZ post" width={600} height={600} className="rounded-lg aspect-square object-cover" />
-                    <Button className="w-full"><Download className="mr-2 h-4 w-4" /> Stáhnout CZ post</Button>
-                </div>
-              )}
-              {enPostImage && (
-                <div className="space-y-2">
-                    <Image data-ai-hint="food post" src={enPostImage.imageUrl} alt="EN post" width={600} height={600} className="rounded-lg aspect-square object-cover" />
-                    <Button className="w-full"><Download className="mr-2 h-4 w-4" /> Stáhnout EN post</Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        );
-      case 'web':
-        return (
-          <Card className="glass-card">
-            <CardHeader><CardTitle>Nahráno na web</CardTitle></CardHeader>
-            <CardContent className="flex flex-col items-center justify-center gap-4 p-8 bg-green-500/10 rounded-lg">
-                <Globe className="w-16 h-16 text-green-500" />
-                <p className="text-green-600 dark:text-green-400">Menu bylo úspěšně propsáno na web.</p>
-                <Button variant="link">Otevřít náhled</Button>
-            </CardContent>
-          </Card>
-        )
-      default:
+    
+    if (!output.type) {
         return null;
     }
+
+    if (output.success) {
+        switch (output.type) {
+            case 'pdf':
+                return (
+                  <Card className="glass-card">
+                    <CardHeader>
+                      <CardTitle>Menu odesláno</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex flex-col items-center justify-center gap-4 p-8 bg-green-500/10 rounded-lg">
+                        <CheckCircle2 className="w-16 h-16 text-green-500" />
+                        <p className="text-green-600 dark:text-green-400">Data byla úspěšně odeslána ke zpracování.</p>
+                    </CardContent>
+                  </Card>
+                );
+            case 'post':
+                return (
+                  <Card className="glass-card">
+                    <CardHeader><CardTitle>Výstup: Příspěvky na sociální sítě</CardTitle></CardHeader>
+                    <CardContent className="grid md:grid-cols-2 gap-4">
+                      {czPostImage && (
+                        <div className="space-y-2">
+                            <Image data-ai-hint="food post" src={czPostImage.imageUrl} alt="CZ post" width={600} height={600} className="rounded-lg aspect-square object-cover" />
+                            <Button className="w-full"><Download className="mr-2 h-4 w-4" /> Stáhnout CZ post</Button>
+                        </div>
+                      )}
+                      {enPostImage && (
+                        <div className="space-y-2">
+                            <Image data-ai-hint="food post" src={enPostImage.imageUrl} alt="EN post" width={600} height={600} className="rounded-lg aspect-square object-cover" />
+                            <Button className="w-full"><Download className="mr-2 h-4 w-4" /> Stáhnout EN post</Button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+            case 'web':
+                return (
+                  <Card className="glass-card">
+                    <CardHeader><CardTitle>Nahráno na web</CardTitle></CardHeader>
+                    <CardContent className="flex flex-col items-center justify-center gap-4 p-8 bg-green-500/10 rounded-lg">
+                        <Globe className="w-16 h-16 text-green-500" />
+                        <p className="text-green-600 dark:text-green-400">Menu bylo úspěšně propsáno na web.</p>
+                        <Button variant="link">Otevřít náhled</Button>
+                    </CardContent>
+                  </Card>
+                );
+            default:
+                return null;
+        }
+    }
+    
+    return null;
   }
   
   if (!currentMenu || currentMenu.length === 0) {
@@ -162,13 +209,13 @@ export default function ExportPage() {
             <p className="text-muted-foreground">Vytvořte z menu podklady pro tisk, sociální sítě nebo web.</p>
         </div>
         <div className="flex flex-wrap justify-center gap-4">
-          <Button variant="outline" onClick={() => handleGenerate('pdf')} disabled={output.loading && output.type !== 'pdf'}>
+          <Button variant="outline" onClick={() => handleGenerate('pdf')} disabled={output.loading}>
               {output.loading && output.type === 'pdf' ? 'Generuji...' : <><FileText className="mr-2 h-4 w-4" /> Vygenerovat k tisku</>}
           </Button>
-          <Button variant="outline" onClick={() => handleGenerate('post')} disabled={output.loading && output.type !== 'post'}>
+          <Button variant="outline" onClick={() => handleGenerate('post')} disabled={output.loading}>
               {output.loading && output.type === 'post' ? 'Generuji...' : <><ImageIcon className="mr-2 h-4 w-4" /> Vygenerovat jako příspěvek</>}
           </Button>
-          <Button variant="outline" onClick={() => handleGenerate('web')} disabled={output.loading && output.type !== 'web'}>
+          <Button variant="outline" onClick={() => handleGenerate('web')} disabled={output.loading}>
               {output.loading && output.type === 'web' ? 'Odesílám...' : <><Globe className="mr-2 h-4 w-4" /> Odeslat na web</>}
           </Button>
         </div>

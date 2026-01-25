@@ -13,12 +13,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Neplatná data menu.' }, { status: 400 });
     }
 
+    const sortedMenu = [...menuData].sort((a, b) => {
+        if (a.type === 'Polévka' && b.type !== 'Polévka') return -1;
+        if (a.type !== 'Polévka' && b.type === 'Polévka') return 1;
+        return 0;
+    });
+
     const params: { [key: string]: string | number } = {};
-    menuData.forEach((dish, index) => {
-        params[`dish_${index + 1}_name_cz`] = dish.name_cz;
-        params[`dish_${index + 1}_name_en`] = dish.name_en;
-        params[`dish_${index + 1}_price`] = dish.price;
-        params[`dish_${index + 1}_allergens`] = dish.allergenIds.join(',');
+    let soupIndex = 1;
+    let mainDishIndex = 1;
+
+    sortedMenu.forEach((dish) => {
+        let prefix = '';
+        if (dish.type === 'Polévka') {
+            prefix = `soup_${soupIndex++}`;
+        } else { // 'Hlavní jídlo'
+            prefix = `main_${mainDishIndex++}`;
+        }
+        
+        params[`${prefix}_name_cz`] = dish.name_cz;
+        params[`${prefix}_name_en`] = dish.name_en;
+        params[`${prefix}_price`] = dish.price;
+        params[`${prefix}_allergens`] = dish.allergenIds.join(',');
     });
 
     // Axios will throw an error for non-2xx responses

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useGastro } from '@/contexts/GastroContext';
@@ -26,6 +26,15 @@ export default function ExportPage() {
   const { toast } = useToast();
   const [lang, setLang] = useState<'cz' | 'en'>('cz');
   const [output, setOutput] = useState<MenuOutput>({ type: null, loading: false, success: false });
+
+  const sortedMenu = useMemo(() => {
+    if (!currentMenu) return [];
+    return [...currentMenu].sort((a, b) => {
+        if (a.type === 'Polévka' && b.type !== 'Polévka') return -1;
+        if (a.type !== 'Polévka' && b.type === 'Polévka') return 1;
+        return 0;
+    });
+  }, [currentMenu]);
 
   const handleGenerate = async (type: 'pdf' | 'post' | 'web') => {
     setOutput({ type: type, loading: true, success: false });
@@ -187,7 +196,7 @@ export default function ExportPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {currentMenu.map(dish => (
+            {sortedMenu.map(dish => (
               <div key={dish.id} className="p-4 border rounded-lg bg-background/50">
                 <p className="font-semibold">{lang === 'cz' ? dish.name_cz : dish.name_en}</p>
                 <div className="flex flex-col text-sm text-muted-foreground mt-2">

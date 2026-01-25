@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import axios from 'axios';
 import type { Dish } from '@/lib/types';
 
-const WEBHOOK_URL = 'https://n8n.srv1004354.hstgr.cloud/webhook-test/d27670eb-ad4a-42ed-9b6f-acd4b00f78e6';
+const WEBHOOK_URL = 'https://n8n.srv1004354.hstgr.cloud/webhook/d27670eb-ad4a-42ed-9b6f-acd4b00f78e6';
 
 export async function POST(request: Request) {
   try {

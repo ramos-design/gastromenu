@@ -30,29 +30,25 @@ export default function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="p-4">
-        {/* 
-          PRO NAHRÁNÍ VLASTNÍHO LOGA:
-          1. Nahrajte soubor s vaším logem (např. 'logo.svg') do složky /public v kořenovém adresáři projektu.
-          2. V kódu níže nahraďte `src` cestou k souboru, např. src="/logo.svg".
-          3. Pro sbalený panel nahrajte ikonovou verzi loga (např. 'ikona.svg') a upravte druhý `src`.
-        */}
         <Link href="/dashboard" className="block">
             <div className="group-data-[collapsible=icon]:hidden">
               <Image
-                src="https://placehold.co/200x60/transparent/black?text=VAŠE+LOGO"
-                alt="Logo"
+                src="/LOGO.png"
+                alt="Logo GastroDashboard"
                 width={200}
                 height={60}
                 className="w-full h-auto"
+                priority
               />
             </div>
             <div className="hidden group-data-[collapsible=icon]:block">
               <Image
-                src="https://placehold.co/40x40/transparent/black?text=GD"
-                alt="Ikona"
+                src="/LOGO.png"
+                alt="Logo GastroDashboard"
                 width={40}
                 height={40}
                 className="mx-auto"
+                priority
               />
             </div>
         </Link>

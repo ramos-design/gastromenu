@@ -1,8 +1,9 @@
 "use client";
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { ChefHat, CookingPot, LayoutDashboard, ListPlus, Sprout, Download, History } from 'lucide-react';
+import { CookingPot, LayoutDashboard, ListPlus, Sprout, Download, History } from 'lucide-react';
 import {
   Sidebar,
   SidebarHeader,
@@ -29,12 +30,32 @@ export default function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="p-4">
-        <div className="flex items-center gap-2">
-          <ChefHat className="w-8 h-8 text-primary" />
-          <h1 className="text-xl font-bold group-data-[collapsible=icon]:hidden">
-            GastroDash
-          </h1>
-        </div>
+        {/* 
+          PRO NAHRÁNÍ VLASTNÍHO LOGA:
+          1. Nahrajte soubor s vaším logem (např. 'logo.svg') do složky /public v kořenovém adresáři projektu.
+          2. V kódu níže nahraďte `src` cestou k souboru, např. src="/logo.svg".
+          3. Pro sbalený panel nahrajte ikonovou verzi loga (např. 'ikona.svg') a upravte druhý `src`.
+        */}
+        <Link href="/dashboard" className="block">
+            <div className="group-data-[collapsible=icon]:hidden">
+              <Image
+                src="https://placehold.co/200x60/transparent/black?text=VAŠE+LOGO"
+                alt="Logo"
+                width={200}
+                height={60}
+                className="w-full h-auto"
+              />
+            </div>
+            <div className="hidden group-data-[collapsible=icon]:block">
+              <Image
+                src="https://placehold.co/40x40/transparent/black?text=GD"
+                alt="Ikona"
+                width={40}
+                height={40}
+                className="mx-auto"
+              />
+            </div>
+        </Link>
       </SidebarHeader>
       <SidebarMenu className="flex-1 p-4 space-y-3">
         {menuItems.map(({ href, label, icon: Icon }) => (

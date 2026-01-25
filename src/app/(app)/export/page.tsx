@@ -95,25 +95,38 @@ export default function ExportPage() {
     }
   }
 
-  const handleDownload = async () => {
+  const handleDownload = () => {
     if (!generatedPdfImage) return;
     try {
-        const response = await fetch(generatedPdfImage);
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', 'menu.png');
-        document.body.appendChild(link);
-        link.click();
-        link.parentNode?.removeChild(link);
-        window.URL.revokeObjectURL(url);
+      // Manually decode the base64 data URL to a blob
+      const base64Response = generatedPdfImage.split(',')[1];
+      const byteCharacters = atob(base64Response);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'image/png' });
+
+      // Create an object URL from the blob
+      const url = window.URL.createObjectURL(blob);
+
+      // Create a temporary link to trigger the download
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'menu.png');
+      document.body.appendChild(link);
+      link.click();
+
+      // Clean up
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
     } catch (error) {
         console.error("Chyba při stahování obrázku:", error);
         toast({
             variant: "destructive",
             title: "Chyba při stahování",
-            description: "Obrázek se nepodařilo stáhnout.",
+            description: "Obrázek se nepodařilo stáhnout. Zkuste to prosím znovu.",
         });
     }
   };

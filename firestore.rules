@@ -1,0 +1,101 @@
+/**
+ * This ruleset is designed for a prototyping environment for the GastroDashboard application.
+ *
+ * Core Philosophy:
+ * The security model prioritizes flexibility for rapid development and UI testing. It provides
+ * completely public read access to all data, allowing the frontend application to fetch menu
+ * information without requiring user authentication. To provide a basic level of protection against
+ * anonymous abuse, all write operations (creating, updating, deleting) are restricted to
+ * authenticated users, which can include users signed in anonymously.
+ *
+ * Data Structure:
+ * The data is organized into three flat, top-level collections:
+ * - /foods: Contains all individual food items.
+ * - /allergens: Contains all possible allergens.
+ * - /weekly_menus: Defines the menus for specific weeks.
+ * There is no user-specific data or nested subcollections.
+ *
+ * Key Security Decisions:
+ * - Public Reads: All data is publicly readable (`get`, `list`) by anyone, including unauthenticated visitors.
+ *   This simplifies data fetching during early-stage UI development.
+ * - Authenticated Writes: All write operations (`create`, `update`, `delete`) require a user to be signed in.
+ *   This is a minimal safeguard to prevent unauthorized modification by the general public while
+ *   still allowing developers and testers to freely manipulate data.
+ * - No Schema Validation: In line with the prototyping philosophy, these rules do not enforce the
+ *   shape or type of the data being written. This allows the data model to evolve without
+ *   requiring constant rule updates.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions for readability and re-use.
+
+    /**
+     * Checks if the user is authenticated (not a guest).
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Allows a write operation if the user is signed in. Used for creating new documents.
+     */
+    function isCreateAllowed() {
+      return isSignedIn();
+    }
+
+    /**
+     * Allows a write operation if the user is signed in and the document already exists.
+     * This is a crucial check for all update and delete operations.
+     */
+    function isUpdateOrDeleteAllowed() {
+      return isSignedIn() && resource != null;
+    }
+
+    /**
+     * @description Allows public read access to food items, but restricts all write
+     *              operations to authenticated users.
+     * @path        /foods/{foodId}
+     * @allow       (get) A non-authenticated user can read a food document.
+     * @allow       (create) An authenticated user (auth.uid != null) can create a new food document.
+     * @deny        (update) A non-authenticated user (auth.uid == null) cannot update a food document.
+     * @principle   Provides open access for reads and basic protection for writes, suitable for a prototyping environment.
+     */
+    match /foods/{foodId} {
+      allow get, list: if true;
+      allow create: if isCreateAllowed();
+      allow update, delete: if isUpdateOrDeleteAllowed();
+    }
+
+    /**
+     * @description Allows public read access to allergens, but restricts all write
+     *              operations to authenticated users.
+     * @path        /allergens/{allergenId}
+     * @allow       (list) Any client can list all allergens.
+     * @allow       (update) An authenticated user (auth.uid != null) can update an existing allergen document.
+     * @deny        (create) A non-authenticated user (auth.uid == null) cannot create a new allergen.
+     * @principle   Provides open access for reads and basic protection for writes, suitable for a prototyping environment.
+     */
+    match /allergens/{allergenId} {
+      allow get, list: if true;
+      allow create: if isCreateAllowed();
+      allow update, delete: if isUpdateOrDeleteAllowed();
+    }
+
+    /**
+     * @description Allows public read access to weekly menus, but restricts all write
+     *              operations to authenticated users.
+     * @path        /weekly_menus/{weeklyMenuId}
+     * @allow       (get) Any client can read a specific weekly menu.
+     * @allow       (delete) An authenticated user (auth.uid != null) can delete an existing weekly menu.
+     * @deny        (delete) A non-authenticated user (auth.uid == null) cannot delete a weekly menu.
+     * @principle   Provides open access for reads and basic protection for writes, suitable for a prototyping environment.
+     */
+    match /weekly_menus/{weeklyMenuId} {
+      allow get, list: if true;
+      allow create: if isCreateAllowed();
+      allow update, delete: if isUpdateOrDeleteAllowed();
+    }
+  }
+}

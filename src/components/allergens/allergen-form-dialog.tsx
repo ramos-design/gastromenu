@@ -37,39 +37,43 @@ export function AllergenFormDialog({ isOpen, onClose, allergen }: AllergenFormDi
   const { toast } = useToast();
 
   const formSchema = z.object({
-    id: z.coerce.number().min(1, 'Číslo musí být větší než 0.')
-      .refine(id => !allergens.some(a => a.id === id && a.id !== allergen?.id), {
+    number: z.coerce.number().min(1, 'Číslo musí být větší než 0.')
+      .refine(num => !allergens.some(a => a.number === num && a.id !== allergen?.id), {
         message: 'Toto číslo alergenu již existuje.',
       }),
     name_cz: z.string().min(3, 'Název musí mít alespoň 3 znaky.'),
     name_en: z.string().min(3, 'Anglický název musí mít alespoň 3 znaky.'),
   });
+  
+  type FormValues = Omit<Allergen, 'id'>;
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      id: 0,
+      number: 0,
       name_cz: '',
       name_en: '',
     },
   });
 
   useEffect(() => {
-    if (allergen) {
-      form.reset(allergen);
-    } else {
-      const nextId = Math.max(0, ...allergens.map(a => a.id)) + 1;
-      form.reset({
-        id: nextId,
-        name_cz: '',
-        name_en: '',
-      });
+    if (isOpen) {
+      if (allergen) {
+        form.reset(allergen);
+      } else {
+        const nextId = allergens.length > 0 ? Math.max(...allergens.map(a => a.number)) + 1 : 1;
+        form.reset({
+          number: nextId,
+          name_cz: '',
+          name_en: '',
+        });
+      }
     }
   }, [allergen, allergens, form, isOpen]);
 
-  const onSubmit = (values: z.infer<typeof formSchema>) => {
+  const onSubmit = (values: FormValues) => {
     if (allergen) {
-      updateAllergen(values);
+      updateAllergen({ ...allergen, ...values });
       toast({ title: 'Alergen upraven', description: `Alergen "${values.name_cz}" byl úspěšně aktualizován.` });
     } else {
       addAllergen(values);
@@ -92,7 +96,7 @@ export function AllergenFormDialog({ isOpen, onClose, allergen }: AllergenFormDi
             <div className="space-y-4">
               <FormField
                 control={form.control}
-                name="id"
+                name="number"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Číslo alergenu</FormLabel>

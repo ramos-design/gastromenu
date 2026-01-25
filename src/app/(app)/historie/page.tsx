@@ -5,10 +5,11 @@ import { useGastro } from '@/contexts/GastroContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { History } from 'lucide-react';
+import { History, Loader2 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function HistoriePage() {
-  const { menuHistory } = useGastro();
+  const { menuHistory, allergens, isLoading } = useGastro();
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('cs-CZ', {
@@ -19,6 +20,27 @@ export default function HistoriePage() {
       minute: '2-digit',
     });
   };
+
+  const getAllergenNumber = (id: string) => {
+    const allergen = allergens.find(a => a.id === id);
+    return allergen ? allergen.number : id;
+  }
+  
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Historie menu</h1>
+          <p className="text-muted-foreground">Prohlédněte si historii vygenerovaných menu.</p>
+        </div>
+         <div className="space-y-4">
+          <Skeleton className="w-full h-48" />
+          <Skeleton className="w-full h-48" />
+          <Skeleton className="w-full h-48" />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -52,7 +74,7 @@ export default function HistoriePage() {
                           <div className="flex items-center gap-1 flex-wrap justify-end">
                             <span className="text-muted-foreground">Alergeny:</span>
                             {dish.allergenIds.map(id => (
-                              <Badge key={id} variant="secondary">{id}</Badge>
+                              <Badge key={id} variant="secondary">{getAllergenNumber(id)}</Badge>
                             ))}
                           </div>
                         </div>

@@ -21,7 +21,7 @@ type ColumnsProps = {
 
 export const columns = ({ onEdit }: ColumnsProps): ColumnDef<Allergen>[] => [
   {
-    accessorKey: "id",
+    accessorKey: "number",
     header: ({ column }) => {
       return (
         <Button
@@ -33,7 +33,7 @@ export const columns = ({ onEdit }: ColumnsProps): ColumnDef<Allergen>[] => [
         </Button>
       );
     },
-    cell: ({ row }) => <div className="font-bold">{row.getValue("id")}</div>,
+    cell: ({ row }) => <div className="font-bold">{row.getValue("number")}</div>,
   },
   {
     accessorKey: "name_cz",
@@ -61,7 +61,7 @@ export const columns = ({ onEdit }: ColumnsProps): ColumnDef<Allergen>[] => [
 
       const inUse = isAllergenInUse(allergen.id);
       const description = inUse
-        ? "Tento alergen je použit u jednoho nebo více jídel. Opravdu ho chcete smazat?"
+        ? "Tento alergen je použit u jednoho nebo více jídel. Opravdu ho chcete smazat? Tímto krokem bude alergen odstraněn i ze všech jídel."
         : "Tato akce je nevratná. Opravdu si přejete smazat tento alergen?";
 
       return (

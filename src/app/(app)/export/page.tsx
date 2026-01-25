@@ -22,7 +22,7 @@ type MenuOutput = {
 };
 
 export default function ExportPage() {
-  const { currentMenu, addMenuToHistory } = useGastro();
+  const { currentMenu, addMenuToHistory, allergens } = useGastro();
   const { toast } = useToast();
   const [lang, setLang] = useState<'cz' | 'en'>('cz');
   const [output, setOutput] = useState<MenuOutput>({ type: null, loading: false, success: false });
@@ -226,6 +226,11 @@ export default function ExportPage() {
     );
   }
 
+  const getAllergenNumber = (id: string) => {
+    const allergen = allergens.find(a => a.id === id);
+    return allergen ? allergen.number : id;
+  }
+
   return (
     <div className="space-y-8">
        <div>
@@ -258,7 +263,7 @@ export default function ExportPage() {
                     <div className="flex justify-between items-start">
                       <span>Alergeny:</span>
                       <div className="flex items-center gap-2 flex-wrap justify-end max-w-[70%]">
-                        {dish.allergenIds.map(id => <Badge key={id} variant="secondary">{id}</Badge>)}
+                        {dish.allergenIds.map(id => <Badge key={id} variant="secondary">{getAllergenNumber(id)}</Badge>)}
                       </div>
                     </div>
                 </div>

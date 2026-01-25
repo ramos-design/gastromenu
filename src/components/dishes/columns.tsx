@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { Dish } from "@/lib/types";
 import { DishActions } from "./dish-actions";
+import { useGastro } from "@/contexts/GastroContext";
 
 type ColumnsProps = {
   onEdit: (dish: Dish) => void;
@@ -47,12 +48,16 @@ export const columns = ({ onEdit }: ColumnsProps): ColumnDef<Dish>[] => [
     accessorKey: "allergenIds",
     header: "Alergeny",
     cell: ({ row }) => {
-      const allergenIds = row.getValue("allergenIds") as number[];
+      const { allergens } = useGastro();
+      const allergenIds = row.getValue("allergenIds") as string[];
       return (
         <div className="flex flex-wrap gap-1">
-          {allergenIds.map(id => (
-            <Badge key={id} variant="secondary">{id}</Badge>
-          ))}
+          {allergenIds.map(id => {
+            const allergen = allergens.find(a => a.id === id);
+            return (
+              <Badge key={id} variant="secondary">{allergen?.number || id}</Badge>
+            )
+          })}
         </div>
       );
     },

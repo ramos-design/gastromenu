@@ -41,7 +41,7 @@ const formSchema = z.object({
   name_en: z.string().min(3, { message: 'Anglický název musí mít alespoň 3 znaky.' }),
   type: z.enum(['Polévka', 'Hlavní jídlo'], { required_error: 'Vyberte typ jídla.' }),
   price: z.coerce.number().min(0, { message: 'Cena nesmí být záporná.' }),
-  allergenIds: z.array(z.number()),
+  allergenIds: z.array(z.string()),
 });
 
 type DishFormSheetProps = {
@@ -77,7 +77,7 @@ export function DishFormSheet({ isOpen, onClose, dish }: DishFormSheetProps) {
         allergenIds: [],
       });
     }
-  }, [dish, form]);
+  }, [dish, form, isOpen]);
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     if (dish) {
@@ -90,7 +90,7 @@ export function DishFormSheet({ isOpen, onClose, dish }: DishFormSheetProps) {
     onClose();
   };
 
-  const allergenOptions = allergens.map(a => ({ value: a.id.toString(), label: `${a.id} - ${a.name_cz}` }));
+  const allergenOptions = allergens.map(a => ({ value: a.id, label: `${a.number} - ${a.name_cz}` }));
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
@@ -185,8 +185,8 @@ export function DishFormSheet({ isOpen, onClose, dish }: DishFormSheetProps) {
                     <FormControl>
                         <MultiSelect
                             options={allergenOptions}
-                            selected={field.value.map(String)}
-                            onChange={(selected) => field.onChange(selected.map(Number))}
+                            selected={field.value}
+                            onChange={field.onChange}
                             placeholder="Vyberte alergeny..."
                         />
                     </FormControl>

@@ -20,31 +20,35 @@ export async function POST(request: Request) {
         price: dish.price,
     }));
 
+    // Axios will throw an error for non-2xx responses
     const response = await axios.post(WEBHOOK_URL, exportData);
     
-    if (response.status >= 200 && response.status < 300) {
-      return NextResponse.json({ message: 'Menu exported successfully', data: response.data });
-    } else {
-       return NextResponse.json({ message: `Webhook selhal se stavem: ${response.status}`, error: response.data }, { status: response.status });
-    }
+    return NextResponse.json({ message: 'Menu exported successfully', data: response.data });
 
   } catch (error) {
     console.error('Error exporting menu:', error);
     let errorMessage = 'Interní chyba serveru';
+    let status = 500;
+    
     if (axios.isAxiosError(error)) {
         if (error.response) {
+            // Webhook responded with an error
+            status = error.response.status;
             console.error('Webhook response error data:', error.response.data);
-            errorMessage = 'Chyba při volání webhooku.';
-            return NextResponse.json({ message: errorMessage, error: error.response.data }, { status: error.response.status });
+            // Try to use a message from the webhook response, otherwise fall back to a generic one
+            errorMessage = (error.response.data as any)?.message || `Webhook selhal se stavem: ${status}`;
         } else if (error.request) {
-            console.error('Webhook no response:', error.request);
+            // No response from webhook
             errorMessage = 'Na požadavek na webhook nepřišla žádná odpověď.';
+            status = 504; // Gateway Timeout
         } else {
+            // Error setting up the request
             errorMessage = error.message;
         }
     } else if (error instanceof Error) {
         errorMessage = error.message;
     }
-    return NextResponse.json({ message: 'Chyba při exportu menu', error: errorMessage }, { status: 500 });
+    
+    return NextResponse.json({ message: errorMessage }, { status: status });
   }
 }

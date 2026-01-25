@@ -41,8 +41,15 @@ export default function ExportPage() {
             });
 
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Nastala chyba při odesílání dat.');
+                let errorMessage = 'Nastala chyba při odesílání dat.';
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.message || errorMessage;
+                } catch (e) {
+                    // Not a JSON response, use status text
+                    errorMessage = response.statusText || errorMessage;
+                }
+                throw new Error(errorMessage);
             }
 
             setOutput({ type: type, loading: false, success: true });

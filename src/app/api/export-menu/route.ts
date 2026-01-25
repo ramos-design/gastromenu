@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import axios from 'axios';
-import type { Dish } from '@/lib/types';
+import type { Allergen, Dish } from '@/lib/types';
 
 const WEBHOOK_URL = 'https://n8n.srv1004354.hstgr.cloud/webhook-test/d27670eb-ad4a-42ed-9b6f-acd4b00f78e6';
 
@@ -8,10 +8,17 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const menuData: Dish[] = body.menu;
+    const allergens: Allergen[] = body.allergens;
 
     if (!menuData || !Array.isArray(menuData)) {
       return NextResponse.json({ message: 'Neplatná data menu.' }, { status: 400 });
     }
+
+    if (!allergens || !Array.isArray(allergens)) {
+      return NextResponse.json({ message: 'Neplatná data alergenů.' }, { status: 400 });
+    }
+
+    const allergenMap = new Map(allergens.map(a => [a.id, a.number]));
 
     const sortedMenu = [...menuData].sort((a, b) => {
         if (a.type === 'Polévka' && b.type !== 'Polévka') return -1;
@@ -34,7 +41,9 @@ export async function POST(request: Request) {
         params[`${prefix}_name_cz`] = dish.name_cz;
         params[`${prefix}_name_en`] = dish.name_en;
         params[`${prefix}_price`] = dish.price;
-        params[`${prefix}_allergens`] = dish.allergenIds.join(',');
+        
+        const allergenNumbers = dish.allergenIds.map(id => allergenMap.get(id) || id).join(',');
+        params[`${prefix}_allergens`] = allergenNumbers;
     });
 
     const response = await axios.get(WEBHOOK_URL, { 

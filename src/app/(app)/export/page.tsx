@@ -56,7 +56,7 @@ export default function ExportPage() {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ menu: currentMenu }),
+                body: JSON.stringify({ menu: currentMenu, allergens: allergens }),
             });
 
             if (!response.ok) {

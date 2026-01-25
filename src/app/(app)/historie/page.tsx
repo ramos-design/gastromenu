@@ -7,6 +7,13 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { History, Loader2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+
 
 export default function HistoriePage() {
   const { menuHistory, allergens, isLoading } = useGastro();
@@ -34,9 +41,9 @@ export default function HistoriePage() {
           <p className="text-muted-foreground">Prohlédněte si historii vygenerovaných menu.</p>
         </div>
          <div className="space-y-4">
-          <Skeleton className="w-full h-48" />
-          <Skeleton className="w-full h-48" />
-          <Skeleton className="w-full h-48" />
+          <Skeleton className="w-full h-24" />
+          <Skeleton className="w-full h-24" />
+          <Skeleton className="w-full h-24" />
         </div>
       </div>
     )
@@ -57,34 +64,36 @@ export default function HistoriePage() {
         </Card>
       ) : (
         <ScrollArea className="h-[calc(100vh-200px)]">
-          <div className="space-y-4 pr-4">
-            {menuHistory.map(item => (
-              <Card key={item.id} className="glass-card">
-                <CardHeader>
-                  <CardTitle>Menu ze dne: {formatDate(item.date)}</CardTitle>
-                  <CardDescription>Počet jídel: {item.dishes.length}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {item.dishes.map(dish => (
-                      <div key={dish.id} className="p-3 border rounded-lg bg-background/50">
-                        <p className="font-semibold">{dish.name_cz}</p>
-                        <div className="flex justify-between text-sm mt-1">
-                          <span className="text-muted-foreground">Cena: {dish.price} Kč</span>
-                          <div className="flex items-center gap-1 flex-wrap justify-end">
-                            <span className="text-muted-foreground">Alergeny:</span>
-                            {dish.allergenIds.map(id => (
-                              <Badge key={id} variant="secondary">{getAllergenNumber(id)}</Badge>
-                            ))}
-                          </div>
+            <Accordion type="single" collapsible className="space-y-4 pr-4">
+                {menuHistory.map(item => (
+                <AccordionItem value={item.id} key={item.id} className="glass-card border-b-0 rounded-xl overflow-hidden">
+                    <AccordionTrigger className="p-6 hover:no-underline">
+                        <div className="flex-1 text-left">
+                            <h3 className="text-2xl font-semibold leading-none tracking-tight">Menu ze dne: {formatDate(item.date)}</h3>
+                            <p className="text-sm text-muted-foreground pt-1.5">Počet jídel: {item.dishes.length}</p>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                    <div className="px-6 pb-6 pt-0 space-y-2">
+                        {item.dishes.map(dish => (
+                        <div key={dish.id} className="p-3 border rounded-lg bg-background/50">
+                            <p className="font-semibold">{dish.name_cz}</p>
+                            <div className="flex justify-between text-sm mt-1">
+                            <span className="text-muted-foreground">Cena: {dish.price} Kč</span>
+                            <div className="flex items-center gap-1 flex-wrap justify-end">
+                                <span className="text-muted-foreground">Alergeny:</span>
+                                {dish.allergenIds.map(id => (
+                                <Badge key={id} variant="secondary">{getAllergenNumber(id)}</Badge>
+                                ))}
+                            </div>
+                            </div>
+                        </div>
+                        ))}
+                    </div>
+                    </AccordionContent>
+                </AccordionItem>
+                ))}
+            </Accordion>
         </ScrollArea>
       )}
     </div>

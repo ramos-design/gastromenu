@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import axios from 'axios';
 import type { Dish } from '@/lib/types';
 
-const WEBHOOK_URL = 'https://n8n.srv1004354.hstgr.cloud/webhook-test/d27670eb-ad4a-42ed-9b6f-acd4b00f78e6a';
+const WEBHOOK_URL = 'https://n8n.srv1004354.hstgr.cloud/webhook-test/d27670eb-ad4a-42ed-9b6f-acd4b00f78e6';
 
 export async function POST(request: Request) {
   try {
@@ -36,7 +36,15 @@ export async function POST(request: Request) {
             status = error.response.status;
             console.error('Webhook response error data:', error.response.data);
             // Try to use a message from the webhook response, otherwise fall back to a generic one
-            errorMessage = (error.response.data as any)?.message || `Webhook selhal se stavem: ${status}`;
+            const responseData = error.response.data as any;
+            if (responseData && typeof responseData === 'object' && 'message' in responseData) {
+                errorMessage = responseData.message;
+            } else if (typeof responseData === 'string' && responseData.length > 0) {
+                errorMessage = responseData;
+            } else {
+                errorMessage = `Webhook selhal se stavem: ${status}`;
+            }
+
         } else if (error.request) {
             // No response from webhook
             errorMessage = 'Na požadavek na webhook nepřišla žádná odpověď.';

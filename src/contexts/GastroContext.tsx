@@ -7,6 +7,8 @@ import { initialAllergens, initialDishes } from '@/lib/data';
 interface GastroContextType {
   allergens: Allergen[];
   dishes: Dish[];
+  currentMenu: Dish[] | null;
+  setCurrentMenu: (dishes: Dish[]) => void;
   addDish: (dish: Omit<Dish, 'id'>) => void;
   updateDish: (dish: Dish) => void;
   deleteDish: (id: string) => void;
@@ -21,6 +23,7 @@ const GastroContext = createContext<GastroContextType | undefined>(undefined);
 export const GastroProvider = ({ children }: { children: ReactNode }) => {
   const [allergens, setAllergens] = useState<Allergen[]>(initialAllergens);
   const [dishes, setDishes] = useState<Dish[]>(initialDishes);
+  const [currentMenu, setCurrentMenu] = useState<Dish[] | null>(null);
 
   const addDish = (dish: Omit<Dish, 'id'>) => {
     setDishes(prev => [...prev, { ...dish, id: new Date().toISOString() }]);
@@ -53,6 +56,8 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
   const value = {
     allergens,
     dishes,
+    currentMenu,
+    setCurrentMenu,
     addDish,
     updateDish,
     deleteDish,

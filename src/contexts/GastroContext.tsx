@@ -41,9 +41,14 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
   const dishesRef = useMemoFirebase(() => firestore && collection(firestore, 'foods'), [firestore]);
   const menuHistoryRef = useMemoFirebase(() => firestore && collection(firestore, 'weekly_menus'), [firestore]);
 
-  const { data: allergens, isLoading: allergensLoading } = useCollection<Allergen>(allergensRef);
+  const { data: allergensData, isLoading: allergensLoading } = useCollection<Allergen>(allergensRef);
   const { data: dishes, isLoading: dishesLoading } = useCollection<Dish>(dishesRef);
   const { data: menuHistory, isLoading: menuHistoryLoading } = useCollection<MenuHistoryItem>(menuHistoryRef);
+
+  const allergens = useMemo(() => {
+    if (!allergensData) return [];
+    return [...allergensData].sort((a, b) => a.number - b.number);
+  }, [allergensData]);
 
   const [currentMenu, setCurrentMenu] = useLocalStorage<Dish[] | null>('currentMenu', null);
 
@@ -51,7 +56,7 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
 
   // Seed initial allergens if the collection is empty
   useEffect(() => {
-    if (firestore && !allergensLoading && allergens && allergens.length === 0) {
+    if (firestore && !allergensLoading && allergensData && allergensData.length === 0) {
       const batch = writeBatch(firestore);
       const allergensCol = collection(firestore, 'allergens');
       initialAllergens.forEach((allergen) => {
@@ -62,7 +67,7 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
         console.error("Error seeding allergens: ", error);
       });
     }
-  }, [firestore, allergens, allergensLoading]);
+  }, [firestore, allergensData, allergensLoading]);
 
   const addDish = (dish: Omit<Dish, 'id'>) => {
     if (!dishesRef) return;
@@ -124,7 +129,7 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const value = {
-    allergens: allergens || [],
+    allergens,
     dishes: dishes || [],
     currentMenu,
     menuHistory: menuHistory || [],

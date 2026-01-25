@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useGastro } from '@/contexts/GastroContext';
@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Download, FileText, Globe, Image as ImageIcon, Pilcrow } from 'lucide-react';
+import { Download, FileText, Globe, Image as ImageIcon, Pilcrow, Loader2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useToast } from '@/hooks/use-toast';
@@ -28,6 +28,11 @@ export default function ExportPage() {
   const [output, setOutput] = useState<MenuOutput>({ type: null, loading: false, success: false });
   const [generatedPdfImage, setGeneratedPdfImage] = useState<string | null>(null);
   const [isPreviewVisible, setIsPreviewVisible] = useState(true);
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   const sortedMenu = useMemo(() => {
     if (!currentMenu) return [];
@@ -213,6 +218,16 @@ export default function ExportPage() {
     return null;
   }
   
+  if (!hasMounted) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-center">
+        <Loader2 className="w-16 h-16 text-muted-foreground mb-4 animate-spin" />
+        <h2 className="text-2xl font-semibold mb-2">Načítání...</h2>
+        <p className="text-muted-foreground">Kontroluji aktuální menu.</p>
+      </div>
+    );
+  }
+
   if (!currentMenu || currentMenu.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center">

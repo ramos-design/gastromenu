@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, ReactNode, useMemo } from 'react';
+import React, { createContext, useContext, ReactNode, useMemo, useEffect } from 'react';
 import type { Allergen, Dish, MenuHistoryItem } from '@/lib/types';
 import {
   useCollection,
@@ -13,6 +13,7 @@ import {
 } from '@/firebase';
 import { collection, doc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import useLocalStorage from '@/hooks/use-local-storage';
+import { initialAllergens } from '@/lib/data';
 
 interface GastroContextType {
   allergens: Allergen[];
@@ -47,6 +48,21 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
   const [currentMenu, setCurrentMenu] = useLocalStorage<Dish[] | null>('currentMenu', null);
 
   const isLoading = useMemo(() => allergensLoading || dishesLoading || menuHistoryLoading, [allergensLoading, dishesLoading, menuHistoryLoading]);
+
+  // Seed initial allergens if the collection is empty
+  useEffect(() => {
+    if (firestore && !allergensLoading && allergens && allergens.length === 0) {
+      const batch = writeBatch(firestore);
+      const allergensCol = collection(firestore, 'allergens');
+      initialAllergens.forEach((allergen) => {
+        const docRef = doc(allergensCol); // Create a new doc with a generated id
+        batch.set(docRef, { ...allergen, createdAt: serverTimestamp() });
+      });
+      batch.commit().catch(error => {
+        console.error("Error seeding allergens: ", error);
+      });
+    }
+  }, [firestore, allergens, allergensLoading]);
 
   const addDish = (dish: Omit<Dish, 'id'>) => {
     if (!dishesRef) return;

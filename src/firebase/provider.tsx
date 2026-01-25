@@ -4,7 +4,8 @@ import React, { DependencyList, createContext, useContext, ReactNode, useMemo, u
 import { FirebaseApp } from 'firebase/app';
 import { Firestore } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged } from 'firebase/auth';
-import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
+import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
+import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
 
 interface FirebaseProviderProps {
   children: ReactNode;
@@ -88,6 +89,13 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     );
     return () => unsubscribe(); // Cleanup
   }, [auth]); // Depends on the auth instance
+
+  useEffect(() => {
+    // When auth is resolved and there's no user, sign in anonymously.
+    if (auth && !userAuthState.isUserLoading && !userAuthState.user && !userAuthState.userError) {
+      initiateAnonymousSignIn(auth);
+    }
+  }, [auth, userAuthState.isUserLoading, userAuthState.user, userAuthState.userError]);
 
   // Memoize the context value
   const contextValue = useMemo((): FirebaseContextState => {

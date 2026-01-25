@@ -14,3 +14,9 @@ export type Dish = {
   type: DishType;
   allergenIds: number[];
 };
+
+export type MenuHistoryItem = {
+  id: string;
+  date: string;
+  dishes: Dish[];
+};

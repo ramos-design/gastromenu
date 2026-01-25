@@ -1,29 +1,33 @@
 "use client";
 
-import React, { createContext, useState, useContext, ReactNode } from 'react';
-import type { Allergen, Dish, DishType } from '@/lib/types';
+import React, { createContext, useContext, ReactNode } from 'react';
+import type { Allergen, Dish, MenuHistoryItem } from '@/lib/types';
 import { initialAllergens, initialDishes } from '@/lib/data';
+import useLocalStorage from '@/hooks/use-local-storage';
 
 interface GastroContextType {
   allergens: Allergen[];
   dishes: Dish[];
   currentMenu: Dish[] | null;
-  setCurrentMenu: (dishes: Dish[]) => void;
+  menuHistory: MenuHistoryItem[];
+  setCurrentMenu: (dishes: Dish[] | null) => void;
   addDish: (dish: Omit<Dish, 'id'>) => void;
   updateDish: (dish: Dish) => void;
   deleteDish: (id: string) => void;
   addAllergen: (allergen: Allergen) => void;
   updateAllergen: (allergen: Allergen) => void;
   deleteAllergen: (id: number) => void;
+  addMenuToHistory: (dishes: Dish[]) => void;
   isAllergenInUse: (id: number) => boolean;
 }
 
 const GastroContext = createContext<GastroContextType | undefined>(undefined);
 
 export const GastroProvider = ({ children }: { children: ReactNode }) => {
-  const [allergens, setAllergens] = useState<Allergen[]>(initialAllergens);
-  const [dishes, setDishes] = useState<Dish[]>(initialDishes);
-  const [currentMenu, setCurrentMenu] = useState<Dish[] | null>(null);
+  const [allergens, setAllergens] = useLocalStorage<Allergen[]>('allergens', initialAllergens);
+  const [dishes, setDishes] = useLocalStorage<Dish[]>('dishes', initialDishes);
+  const [currentMenu, setCurrentMenu] = useLocalStorage<Dish[] | null>('currentMenu', null);
+  const [menuHistory, setMenuHistory] = useLocalStorage<MenuHistoryItem[]>('menuHistory', []);
 
   const addDish = (dish: Omit<Dish, 'id'>) => {
     setDishes(prev => [...prev, { ...dish, id: new Date().toISOString() }]);
@@ -38,11 +42,11 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addAllergen = (allergen: Allergen) => {
-    setAllergens(prev => [...prev, allergen]);
+    setAllergens(prev => [...prev, allergen].sort((a,b) => a.id - b.id));
   };
 
   const updateAllergen = (updatedAllergen: Allergen) => {
-    setAllergens(prev => prev.map(a => a.id === updatedAllergen.id ? updatedAllergen : a));
+    setAllergens(prev => prev.map(a => a.id === updatedAllergen.id ? updatedAllergen : a).sort((a,b) => a.id - b.id));
   };
 
   const deleteAllergen = (id: number) => {
@@ -52,11 +56,21 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
   const isAllergenInUse = (id: number) => {
     return dishes.some(dish => dish.allergenIds.includes(id));
   };
+  
+  const addMenuToHistory = (dishes: Dish[]) => {
+    const newHistoryItem: MenuHistoryItem = {
+      id: new Date().toISOString(),
+      date: new Date().toISOString(),
+      dishes: dishes,
+    };
+    setMenuHistory(prev => [newHistoryItem, ...prev]);
+  };
 
   const value = {
     allergens,
     dishes,
     currentMenu,
+    menuHistory,
     setCurrentMenu,
     addDish,
     updateDish,
@@ -64,6 +78,7 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
     addAllergen,
     updateAllergen,
     deleteAllergen,
+    addMenuToHistory,
     isAllergenInUse
   };
 

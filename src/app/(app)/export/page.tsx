@@ -22,7 +22,7 @@ type MenuOutput = {
 };
 
 export default function ExportPage() {
-  const { currentMenu } = useGastro();
+  const { currentMenu, addMenuToHistory } = useGastro();
   const { toast } = useToast();
   const [lang, setLang] = useState<'cz' | 'en'>('cz');
   const [output, setOutput] = useState<MenuOutput>({ type: null, loading: false, success: false });
@@ -42,6 +42,12 @@ export default function ExportPage() {
     setIsPreviewVisible(false);
     setOutput({ type: type, loading: true, success: false });
     setGeneratedPdfImage(null);
+
+    const onGenerationSuccess = () => {
+        if (currentMenu && currentMenu.length > 0) {
+            addMenuToHistory(currentMenu);
+        }
+    };
 
     if (type === 'pdf') {
         try {
@@ -72,9 +78,10 @@ export default function ExportPage() {
 
             setGeneratedPdfImage(data.imageUrl);
             setOutput({ type: type, loading: false, success: true });
+            onGenerationSuccess();
             toast({
                 title: "Úspěšně vygenerováno",
-                description: "Menu pro tisk bylo úspěšně vygenerováno.",
+                description: "Menu pro tisk bylo úspěšně vygenerováno a uloženo do historie.",
             });
 
         } catch (error) {
@@ -91,6 +98,11 @@ export default function ExportPage() {
         // Simulate other generation types
         setTimeout(() => {
             setOutput({ type: type, loading: false, success: true });
+            onGenerationSuccess();
+            toast({
+                title: "Úspěšně vygenerováno",
+                description: "Menu bylo úspěšně uloženo do historie.",
+            });
         }, 1500);
     }
   }
@@ -98,29 +110,12 @@ export default function ExportPage() {
   const handleDownload = () => {
     if (!generatedPdfImage) return;
     try {
-      // Manually decode the base64 data URL to a blob
-      const base64Response = generatedPdfImage.split(',')[1];
-      const byteCharacters = atob(base64Response);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: 'image/png' });
-
-      // Create an object URL from the blob
-      const url = window.URL.createObjectURL(blob);
-
-      // Create a temporary link to trigger the download
       const link = document.createElement('a');
-      link.href = url;
+      link.href = generatedPdfImage;
       link.setAttribute('download', 'menu.png');
       document.body.appendChild(link);
       link.click();
-
-      // Clean up
-      link.parentNode?.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      document.body.removeChild(link);
     } catch (error) {
         console.error("Chyba při stahování obrázku:", error);
         toast({

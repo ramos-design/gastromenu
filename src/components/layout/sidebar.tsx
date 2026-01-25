@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChefHat, CookingPot, LayoutDashboard, ListPlus, Sprout, Download } from 'lucide-react';
+import { ChefHat, CookingPot, LayoutDashboard, ListPlus, Sprout, Download, History } from 'lucide-react';
 import {
   Sidebar,
   SidebarHeader,
@@ -19,6 +19,7 @@ const menuItems = [
   { href: '/alergeny', label: 'Alergeny', icon: Sprout },
   { href: '/sestav-menu', label: 'Sestavit menu', icon: ListPlus },
   { href: '/export', label: 'Export', icon: Download },
+  { href: '/historie', label: 'Historie', icon: History },
 ];
 
 export default function AppSidebar() {

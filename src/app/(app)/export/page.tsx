@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Download, FileText, Globe, Image as ImageIcon, Pilcrow, CheckCircle2 } from 'lucide-react';
+import { Download, FileText, Globe, Image as ImageIcon, Pilcrow } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useToast } from '@/hooks/use-toast';
@@ -26,6 +26,7 @@ export default function ExportPage() {
   const { toast } = useToast();
   const [lang, setLang] = useState<'cz' | 'en'>('cz');
   const [output, setOutput] = useState<MenuOutput>({ type: null, loading: false, success: false });
+  const [generatedPdfImage, setGeneratedPdfImage] = useState<string | null>(null);
 
   const sortedMenu = useMemo(() => {
     if (!currentMenu) return [];
@@ -38,6 +39,7 @@ export default function ExportPage() {
 
   const handleGenerate = async (type: 'pdf' | 'post' | 'web') => {
     setOutput({ type: type, loading: true, success: false });
+    setGeneratedPdfImage(null);
 
     if (type === 'pdf') {
         try {
@@ -49,22 +51,21 @@ export default function ExportPage() {
                 body: JSON.stringify({ menu: currentMenu }),
             });
 
+            const data = await response.json();
+
             if (!response.ok) {
-                let errorMessage = 'Nastala chyba při odesílání dat.';
-                try {
-                    const errorData = await response.json();
-                    errorMessage = errorData.message || errorMessage;
-                } catch (e) {
-                    // Not a JSON response, use status text
-                    errorMessage = response.statusText || errorMessage;
-                }
-                throw new Error(errorMessage);
+                throw new Error(data.message || 'Nastala chyba při generování PDF.');
             }
 
+            if (!data.imageUrl) {
+              throw new Error('Webhook nevrátil obrázek.');
+            }
+
+            setGeneratedPdfImage(data.imageUrl);
             setOutput({ type: type, loading: false, success: true });
             toast({
-                title: "Úspěšně odesláno",
-                description: "Menu bylo úspěšně odesláno ke generování.",
+                title: "Úspěšně vygenerováno",
+                description: "Menu pro tisk bylo úspěšně vygenerováno.",
             });
 
         } catch (error) {
@@ -99,7 +100,7 @@ export default function ExportPage() {
             <Skeleton className="h-6 w-1/2" />
           </CardHeader>
           <CardContent className="space-y-4">
-            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-40 w-full" />
             <Skeleton className="h-10 w-1/3" />
           </CardContent>
         </Card>
@@ -113,16 +114,30 @@ export default function ExportPage() {
     if (output.success) {
         switch (output.type) {
             case 'pdf':
+                if (generatedPdfImage) {
+                    return (
+                      <Card className="glass-card">
+                        <CardHeader>
+                          <CardTitle>Náhled pro tisk</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <Image src={generatedPdfImage} alt="Vygenerované menu pro tisk" width={800} height={1128} className="rounded-lg border shadow-md w-full h-auto" />
+                        </CardContent>
+                        <CardFooter>
+                          <Button asChild>
+                            <a href={generatedPdfImage} download="menu.png">
+                                <Download className="mr-2 h-4 w-4" /> Stáhnout obrázek
+                            </a>
+                          </Button>
+                        </CardFooter>
+                      </Card>
+                    );
+                }
                 return (
-                  <Card className="glass-card">
-                    <CardHeader>
-                      <CardTitle>Menu odesláno</CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex flex-col items-center justify-center gap-4 p-8 bg-green-500/10 rounded-lg">
-                        <CheckCircle2 className="w-16 h-16 text-green-500" />
-                        <p className="text-green-600 dark:text-green-400">Data byla úspěšně odeslána ke zpracování.</p>
-                    </CardContent>
-                  </Card>
+                    <Card className="glass-card">
+                        <CardHeader><CardTitle>Chyba</CardTitle></CardHeader>
+                        <CardContent><p>Obrázek se nepodařilo načíst.</p></CardContent>
+                    </Card>
                 );
             case 'post':
                 return (

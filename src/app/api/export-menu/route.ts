@@ -37,10 +37,17 @@ export async function POST(request: Request) {
         params[`${prefix}_allergens`] = dish.allergenIds.join(',');
     });
 
-    // Axios will throw an error for non-2xx responses
-    const response = await axios.get(WEBHOOK_URL, { params });
+    const response = await axios.get(WEBHOOK_URL, { 
+        params,
+        responseType: 'arraybuffer' // Očekáváme binární data (obrázek)
+    });
     
-    return NextResponse.json({ message: 'Menu exported successfully', data: response.data });
+    // Zjistíme content type z odpovědi, pokud není, použijeme výchozí
+    const contentType = response.headers['content-type'] || 'image/png';
+    const imageBase64 = Buffer.from(response.data, 'binary').toString('base64');
+    const imageUrl = `data:${contentType};base64,${imageBase64}`;
+    
+    return NextResponse.json({ imageUrl });
 
   } catch (error) {
     console.error('Error exporting menu:', error);
@@ -49,25 +56,24 @@ export async function POST(request: Request) {
     
     if (axios.isAxiosError(error)) {
         if (error.response) {
-            // Webhook responded with an error
             status = error.response.status;
-            console.error('Webhook response error data:', error.response.data);
-            // Try to use a message from the webhook response, otherwise fall back to a generic one
-            const responseData = error.response.data as any;
-            if (responseData && typeof responseData === 'object' && 'message' in responseData) {
-                errorMessage = responseData.message;
-            } else if (typeof responseData === 'string' && responseData.length > 0) {
-                errorMessage = responseData;
-            } else {
-                errorMessage = `Webhook selhal se stavem: ${status}`;
+            let errorText = `Webhook selhal se stavem: ${status}`;
+            if(error.response.data) {
+                // Data z chyby budou pravděpodobně ArrayBuffer, tak je převedeme na text
+                const responseData = Buffer.from(error.response.data, 'binary').toString('utf8');
+                try {
+                    const errorJson = JSON.parse(responseData);
+                    errorText = errorJson.message || responseData;
+                } catch(e) {
+                    errorText = responseData;
+                }
             }
-
+            console.error('Webhook response error data:', errorText);
+            errorMessage = errorText;
         } else if (error.request) {
-            // No response from webhook
             errorMessage = 'Na požadavek na webhook nepřišla žádná odpověď.';
             status = 504; // Gateway Timeout
         } else {
-            // Error setting up the request
             errorMessage = error.message;
         }
     } else if (error instanceof Error) {

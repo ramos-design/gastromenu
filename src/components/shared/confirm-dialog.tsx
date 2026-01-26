@@ -46,7 +46,7 @@ export default function ConfirmDialog({
         )}
         <AlertDialogFooter>
           <AlertDialogCancel onClick={onClose}>Zrušit</AlertDialogCancel>
-          <AlertDialogAction onClick={() => { onConfirm(); onClose(); }}>
+          <AlertDialogAction onClick={() => { onClose(); onConfirm(); }}>
             Potvrdit
           </AlertDialogAction>
         </AlertDialogFooter>

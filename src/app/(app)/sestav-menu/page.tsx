@@ -33,15 +33,15 @@ export default function SestavMenuPage() {
 
   const { soups, mainDishes } = useMemo(() => {
     return {
-      soups: dishes.filter(d => d.type === 'Polévka'),
-      mainDishes: dishes.filter(d => d.type === 'Hlavní jídlo'),
+      soups: dishes.filter(d => d.category === 'Polévka'),
+      mainDishes: dishes.filter(d => d.category === 'Hlavní jídlo'),
     };
   }, [dishes]);
 
   const onSubmit = (data: MenuFormValues) => {
     const selectedIds = Object.values(data).filter(Boolean);
     const selectedDishes = dishes.filter(d => selectedIds.includes(d.id));
-    
+
     if (selectedDishes.length === 0) {
       toast({
         variant: "destructive",
@@ -81,7 +81,7 @@ export default function SestavMenuPage() {
                         <SelectTrigger><SelectValue placeholder="Vyberte polévku" /></SelectTrigger>
                         <SelectContent>
                           {soups.map(soup => (
-                            <SelectItem key={soup.id} value={soup.id}>{soup.name_cz}</SelectItem>
+                            <SelectItem key={soup.id} value={soup.id}>{soup.title_cz}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -105,7 +105,7 @@ export default function SestavMenuPage() {
                           <SelectTrigger><SelectValue placeholder="Vyberte hlavní jídlo" /></SelectTrigger>
                           <SelectContent>
                             {mainDishes.map(dish => (
-                              <SelectItem key={dish.id} value={dish.id}>{dish.name_cz}</SelectItem>
+                              <SelectItem key={dish.id} value={dish.id}>{dish.title_cz}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>

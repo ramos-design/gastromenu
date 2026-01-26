@@ -14,48 +14,57 @@ type ColumnsProps = {
 
 export const columns = ({ onEdit }: ColumnsProps): ColumnDef<Dish>[] => [
   {
-    accessorKey: "name_cz",
+    accessorKey: "title_cz",
     header: ({ column }) => {
       return (
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="-ml-4 hover:bg-transparent px-4"
         >
           Název
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       );
     },
-    cell: ({ row }) => <div className="font-medium">{row.getValue("name_cz")}</div>,
+    cell: ({ row }) => (
+      <div className="font-medium max-w-[200px] lg:max-w-[350px] line-clamp-2 leading-tight py-1 px-0" title={row.getValue("title_cz")}>
+        {row.getValue("title_cz")}
+      </div>
+    ),
   },
   {
-    accessorKey: "type",
-    header: "Typ",
+    accessorKey: "category",
+    header: () => <div className="text-left w-[110px]">Kategorie</div>,
+    cell: ({ row }) => <div className="text-left w-[110px] truncate">{row.getValue("category")}</div>,
   },
   {
     accessorKey: "price",
-    header: () => <div className="text-right">Cena</div>,
+    header: () => <div className="text-left w-[90px]">Cena</div>,
     cell: ({ row }) => {
       const amount = parseFloat(row.getValue("price"));
       const formatted = new Intl.NumberFormat("cs-CZ", {
         style: "currency",
         currency: "CZK",
       }).format(amount);
-      return <div className="text-right font-medium">{formatted}</div>;
+      return <div className="text-left font-medium w-[90px]">{formatted}</div>;
     },
   },
   {
-    accessorKey: "allergenIds",
-    header: "Alergeny",
+    accessorKey: "allergens",
+    header: () => <div className="text-left w-[120px]">Alergeny</div>,
     cell: ({ row }) => {
       const { allergens } = useGastro();
-      const allergenIds = row.getValue("allergenIds") as string[];
+      const allergenIds = row.getValue("allergens") as string[];
       return (
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1 w-[120px]">
           {allergenIds.map(id => {
             const allergen = allergens.find(a => a.id === id);
+            if (!allergen) return null;
             return (
-              <Badge key={id} variant="secondary">{allergen?.number || id}</Badge>
+              <Badge key={id} variant="secondary" className="w-6 h-6 p-0 flex items-center justify-center rounded-full text-xs font-bold shrink-0">
+                {allergen.number}
+              </Badge>
             )
           })}
         </div>
@@ -66,7 +75,7 @@ export const columns = ({ onEdit }: ColumnsProps): ColumnDef<Dish>[] => [
     id: "actions",
     cell: ({ row }) => {
       const dish = row.original;
-      return <DishActions dish={dish} onEdit={onEdit} />;
+      return <div className="text-right"><DishActions dish={dish} onEdit={onEdit} /></div>;
     },
   },
 ];

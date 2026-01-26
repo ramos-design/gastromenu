@@ -69,7 +69,10 @@ export const columns = ({ onEdit }: ColumnsProps): ColumnDef<Allergen>[] => [
           <ConfirmDialog
             isOpen={isConfirmOpen}
             onClose={() => setConfirmOpen(false)}
-            onConfirm={() => deleteAllergen(allergen.id)}
+            onConfirm={() => {
+              // Delay to allow dialog to close before row unmount
+              setTimeout(() => deleteAllergen(allergen.id), 100);
+            }}
             title={`Smazat alergen: ${allergen.name_cz}?`}
             description={description}
             warning={inUse ? "Alergen je používán!" : undefined}

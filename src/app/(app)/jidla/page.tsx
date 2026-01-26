@@ -55,32 +55,32 @@ export default function JidlaPage() {
     setEditingDish(dish);
     setSheetOpen(true);
   };
-  
+
   const handleSheetClose = () => {
     setSheetOpen(false);
     // clean up URL
     const newPath = window.location.pathname;
-    window.history.replaceState({...window.history.state, as: newPath, url: newPath}, '', newPath);
+    window.history.replaceState({ ...window.history.state, as: newPath, url: newPath }, '', newPath);
   }
 
   const filteredDishes = useMemo(() => {
     return dishes
       .filter(dish => {
         if (filter === 'vše') return true;
-        return dish.type === filter;
+        return dish.category === filter;
       })
       .filter(dish => {
         const query = searchQuery.toLowerCase();
         return (
-          dish.name_cz.toLowerCase().includes(query) ||
-          dish.name_en.toLowerCase().includes(query)
+          dish.title_cz.toLowerCase().includes(query) ||
+          dish.title_en.toLowerCase().includes(query)
         );
       });
   }, [dishes, filter, searchQuery]);
 
   // Pass handleEdit to the columns
   const tableColumns = useMemo(() => columns({ onEdit: handleEdit }), [handleEdit]);
-  
+
   const formattedPrice = (price: number) => new Intl.NumberFormat("cs-CZ", {
     style: "currency",
     currency: "CZK",
@@ -106,7 +106,7 @@ export default function JidlaPage() {
           {filteredDishes.map((dish) => (
             <AccordionItem value={dish.id} key={dish.id}>
               <AccordionTrigger className="text-left font-medium">
-                {dish.name_cz}
+                {dish.title_cz}
               </AccordionTrigger>
               <AccordionContent>
                 <div className="flex flex-col gap-3 text-sm">
@@ -115,19 +115,19 @@ export default function JidlaPage() {
                     <span className="font-medium">{formattedPrice(dish.price)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Typ:</span>
-                    <span>{dish.type}</span>
+                    <span className="text-muted-foreground">Kategorie:</span>
+                    <span>{dish.category}</span>
                   </div>
-                   <div className="flex justify-between items-start">
+                  <div className="flex justify-between items-start">
                     <span className="text-muted-foreground pt-1">Alergeny:</span>
                     <div className="flex flex-wrap gap-1 justify-end max-w-[70%]">
-                      {dish.allergenIds.map(id => (
+                      {dish.allergens.map(id => (
                         <Badge key={id} variant="secondary">{id}</Badge>
                       ))}
                     </div>
                   </div>
                   <div className="flex justify-end pt-2">
-                     <DishActions dish={dish} onEdit={handleEdit} />
+                    <DishActions dish={dish} onEdit={handleEdit} />
                   </div>
                 </div>
               </AccordionContent>
@@ -144,8 +144,8 @@ export default function JidlaPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-            <h1 className="text-3xl font-bold tracking-tight">Seznam jídel</h1>
-            <p className="text-muted-foreground">Spravujte svá jídla a recepty.</p>
+          <h1 className="text-3xl font-bold tracking-tight">Seznam jídel</h1>
+          <p className="text-muted-foreground">Spravujte svá jídla a recepty.</p>
         </div>
         <Button onClick={handleAddClick} className="w-full md:w-auto">
           <PlusCircle className="mr-2 h-4 w-4" />

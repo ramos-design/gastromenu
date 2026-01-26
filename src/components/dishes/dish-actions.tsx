@@ -22,7 +22,7 @@ export function DishActions({ dish, onEdit }: DishActionsProps) {
   const { deleteDish } = useGastro();
   const [isConfirmOpen, setConfirmOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -36,8 +36,12 @@ export function DishActions({ dish, onEdit }: DishActionsProps) {
       <ConfirmDialog
         isOpen={isConfirmOpen}
         onClose={() => setConfirmOpen(false)}
-        onConfirm={() => deleteDish(dish.id)}
-        title={`Smazat jídlo: ${dish.name_cz}?`}
+        onConfirm={() => {
+          // Add a small delay to allow the dialog to start its closing animation
+          // before the parent component is unmounted by the state change.
+          setTimeout(() => deleteDish(dish.id), 100);
+        }}
+        title={`Smazat jídlo: ${dish.title_cz}?`}
         description="Tato akce je nevratná. Opravdu si přejete smazat toto jídlo?"
       />
       <DropdownMenu>

@@ -1,5 +1,5 @@
 export type Allergen = {
-  id: string; // Changed from number to string to match firestore
+  id: string;
   name_cz: string;
   name_en: string;
   number: number;
@@ -9,11 +9,14 @@ export type DishType = 'Polévka' | 'Hlavní jídlo';
 
 export type Dish = {
   id: string;
-  name_cz: string;
-  name_en: string;
+  user_id?: string;
+  title_cz: string;
+  title_en?: string;
   price: number;
-  type: DishType;
-  allergenIds: string[]; // Changed from number[] to string[]
+  category: string; // Changed from 'type' to 'category'
+  allergens: string[]; // Changed from 'allergenIds' to 'allergens'
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type MenuHistoryItem = {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -35,13 +35,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import type { Dish } from '@/lib/types';
 import MultiSelect from '../shared/multi-select';
+import { AllergenPicker } from './allergen-picker';
+import { Loader2 } from 'lucide-react';
 
 const formSchema = z.object({
-  name_cz: z.string().min(3, { message: 'Název musí mít alespoň 3 znaky.' }),
-  name_en: z.string().min(3, { message: 'Anglický název musí mít alespoň 3 znaky.' }),
-  type: z.enum(['Polévka', 'Hlavní jídlo'], { required_error: 'Vyberte typ jídla.' }),
+  title_cz: z.string().min(3, { message: 'Název musí mít alespoň 3 znaky.' }),
+  title_en: z.string().optional().or(z.literal('')),
+  category: z.string().min(1, { message: 'Vyberte kategorii jídla.' }),
   price: z.coerce.number().min(0, { message: 'Cena nesmí být záporná.' }),
-  allergenIds: z.array(z.string()),
+  allergens: z.array(z.string()),
 });
 
 type DishFormSheetProps = {
@@ -53,44 +55,61 @@ type DishFormSheetProps = {
 export function DishFormSheet({ isOpen, onClose, dish }: DishFormSheetProps) {
   const { addDish, updateDish, allergens } = useGastro();
   const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name_cz: '',
-      name_en: '',
-      type: 'Hlavní jídlo',
+      title_cz: '',
+      title_en: '',
+      category: 'Hlavní jídlo',
       price: 0,
-      allergenIds: [],
+      allergens: [],
     },
   });
 
   useEffect(() => {
     if (dish) {
-      form.reset(dish);
+      form.reset({
+        title_cz: dish.title_cz,
+        title_en: dish.title_en,
+        category: dish.category,
+        price: dish.price,
+        allergens: dish.allergens,
+      });
     } else {
       form.reset({
-        name_cz: '',
-        name_en: '',
-        type: 'Hlavní jídlo',
+        title_cz: '',
+        title_en: '',
+        category: 'Hlavní jídlo',
         price: 0,
-        allergenIds: [],
+        allergens: [],
       });
     }
   }, [dish, form, isOpen]);
 
-  const onSubmit = (values: z.infer<typeof formSchema>) => {
-    if (dish) {
-      updateDish({ ...dish, ...values });
-      toast({ title: 'Jídlo upraveno', description: `Jídlo "${values.name_cz}" bylo úspěšně aktualizováno.` });
-    } else {
-      addDish(values);
-      toast({ title: 'Jídlo přidáno', description: `Jídlo "${values.name_cz}" bylo úspěšně přidáno.` });
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    setIsSubmitting(true);
+    try {
+      if (dish) {
+        await updateDish({ ...dish, ...values });
+        toast({ title: 'Jídlo upraveno', description: `Jídlo "${values.title_cz}" bylo úspěšně aktualizováno.` });
+      } else {
+        await addDish(values);
+        toast({ title: 'Jídlo přidáno', description: `Jídlo "${values.title_cz}" bylo úspěšně přidáno.` });
+      }
+      onClose();
+    } catch (error) {
+      toast({
+        title: 'Chyba',
+        description: 'Nepodařilo se uložit jídlo. Zkuste to prosím znovu.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsSubmitting(false);
     }
-    onClose();
   };
 
-  const allergenOptions = allergens.map(a => ({ value: a.id, label: `${a.number} - ${a.name_cz}` }));
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
@@ -112,7 +131,7 @@ export function DishFormSheet({ isOpen, onClose, dish }: DishFormSheetProps) {
                 <TabsContent value="cz" className="pt-4">
                   <FormField
                     control={form.control}
-                    name="name_cz"
+                    name="title_cz"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Název (CZ)</FormLabel>
@@ -127,7 +146,7 @@ export function DishFormSheet({ isOpen, onClose, dish }: DishFormSheetProps) {
                 <TabsContent value="en" className="pt-4">
                   <FormField
                     control={form.control}
-                    name="name_en"
+                    name="title_en"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Název (EN)</FormLabel>
@@ -143,14 +162,14 @@ export function DishFormSheet({ isOpen, onClose, dish }: DishFormSheetProps) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
-                  name="type"
+                  name="category"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Typ jídla</FormLabel>
+                      <FormLabel>Kategorie jídla</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Vyberte typ" />
+                            <SelectValue placeholder="Vyberte kategorii" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -178,17 +197,15 @@ export function DishFormSheet({ isOpen, onClose, dish }: DishFormSheetProps) {
               </div>
               <FormField
                 control={form.control}
-                name="allergenIds"
+                name="allergens"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Alergeny</FormLabel>
+                    <FormLabel>Alergeny (klikněte pro výběr)</FormLabel>
                     <FormControl>
-                        <MultiSelect
-                            options={allergenOptions}
-                            selected={field.value}
-                            onChange={field.onChange}
-                            placeholder="Vyberte alergeny..."
-                        />
+                      <AllergenPicker
+                        value={field.value}
+                        onChange={field.onChange}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -196,10 +213,13 @@ export function DishFormSheet({ isOpen, onClose, dish }: DishFormSheetProps) {
               />
             </div>
             <SheetFooter>
-                <SheetClose asChild>
-                    <Button type="button" variant="outline">Zrušit</Button>
-                </SheetClose>
-                <Button type="submit">Uložit změny</Button>
+              <SheetClose asChild>
+                <Button type="button" variant="outline" disabled={isSubmitting}>Zrušit</Button>
+              </SheetClose>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Uložit změny
+              </Button>
             </SheetFooter>
           </form>
         </Form>

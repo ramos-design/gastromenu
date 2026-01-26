@@ -47,69 +47,75 @@ function MultiSelect({
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen} modal={false}>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          type="button"
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between"
-          onClick={() => setOpen(!open)}
+          className="w-full justify-between h-auto min-h-10 px-3 py-2"
         >
           <div className="flex gap-1 flex-wrap">
             {selected.length > 0 ? (
-                options
+              options
                 .filter(option => selected.includes(option.value))
                 .map((option) => (
-                    <Badge
-                        variant="secondary"
-                        key={option.value}
-                        className="mr-1 mb-1"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            handleUnselect(option.value);
-                        }}
-                    >
-                        {option.label}
-                        <X className="ml-1 h-3 w-3" />
-                    </Badge>
+                  <Badge
+                    variant="secondary"
+                    key={option.value}
+                    className="mr-1 mb-1"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleUnselect(option.value);
+                    }}
+                  >
+                    {option.label}
+                    <X className="ml-1 h-3 w-3" />
+                  </Badge>
                 ))
             ) : (
-                <span>{props.placeholder ?? "Select options"}</span>
+              <span className="text-muted-foreground">{props.placeholder ?? "Vyberte možnosti"}</span>
             )}
           </div>
-          <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+          <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50 ml-2" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
         <Command className={className}>
           <CommandInput placeholder="Hledat..." />
           <CommandList>
             <CommandEmpty>Nic nenalezeno.</CommandEmpty>
-            <CommandGroup>
-              {options.map((option) => (
-                <CommandItem
-                  key={option.value}
-                  onSelect={() => {
-                    onChange(
-                      selected.includes(option.value)
+            <CommandGroup className="max-h-64 overflow-auto">
+              {options.map((option) => {
+                const isSelected = selected.includes(option.value);
+                return (
+                  <CommandItem
+                    key={option.value}
+                    value={option.label}
+                    onSelect={() => {
+                      const newSelected = isSelected
                         ? selected.filter((item) => item !== option.value)
-                        : [...selected, option.value]
-                    );
-                    setOpen(true);
-                  }}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      selected.includes(option.value)
-                        ? "opacity-100"
-                        : "opacity-0"
-                    )}
-                  />
-                  {option.label}
-                </CommandItem>
-              ))}
+                        : [...selected, option.value];
+                      onChange(newSelected);
+                    }}
+                    onPointerDown={(e) => e.preventDefault()}
+                    className="cursor-pointer"
+                  >
+                    <div
+                      className={cn(
+                        "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                        isSelected
+                          ? "bg-primary text-primary-foreground"
+                          : "opacity-50 [&_svg]:hidden"
+                      )}
+                    >
+                      <Check className={cn("h-4 w-4")} />
+                    </div>
+                    <span>{option.label}</span>
+                  </CommandItem>
+                );
+              })}
             </CommandGroup>
           </CommandList>
         </Command>

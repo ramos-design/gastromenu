@@ -111,60 +111,9 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
   // Initial fetch
   useEffect(() => {
     fetchDishes();
-
-    // Set up real-time subscription
-    const channel: RealtimeChannel = supabase
-      .channel('menu_items_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'menu_items',
-          filter: `user_id=eq.${user?.id}`,
-        },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            const newDish: Dish = {
-              id: payload.new.id,
-              user_id: payload.new.user_id,
-              title_cz: payload.new.title_cz,
-              title_en: payload.new.title_en || undefined,
-              price: typeof payload.new.price === 'string' ? parseFloat(payload.new.price) : payload.new.price,
-              category: payload.new.category,
-              allergens: payload.new.allergens || [],
-              created_at: payload.new.created_at,
-              updated_at: payload.new.updated_at,
-            };
-            setDishes(prev => {
-              // Avoid duplicates if optimistic update already added it
-              if (prev.some(d => d.id === newDish.id)) return prev;
-              return [newDish, ...prev];
-            });
-          } else if (payload.eventType === 'UPDATE') {
-            const updatedDish: Dish = {
-              id: payload.new.id,
-              user_id: payload.new.user_id,
-              title_cz: payload.new.title_cz,
-              title_en: payload.new.title_en || undefined,
-              price: typeof payload.new.price === 'string' ? parseFloat(payload.new.price) : payload.new.price,
-              category: payload.new.category,
-              allergens: payload.new.allergens || [],
-              created_at: payload.new.created_at,
-              updated_at: payload.new.updated_at,
-            };
-            setDishes(prev => prev.map(d => d.id === updatedDish.id ? updatedDish : d));
-          } else if (payload.eventType === 'DELETE') {
-            setDishes(prev => prev.filter(d => d.id !== payload.old.id));
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [fetchDishes, supabase, user?.id]);
+    // Realtime subscription removed to prevent app freezing issues on delete.
+    // relying on window.location.reload() in actions for now.
+  }, [fetchDishes]);
 
 
   const addDish = useCallback(async (dishData: Omit<Dish, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {

@@ -21,7 +21,30 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 type FilterType = 'vše' | DishType;
 
-export default function JidlaPage() {
+// Loading component for the suspense fallback
+function JidlaPageSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <Skeleton className="h-10 w-48 mb-2" />
+          <Skeleton className="h-4 w-64" />
+        </div>
+        <Skeleton className="h-10 w-32" />
+      </div>
+      <Card className="glass-card p-4 sm:p-6">
+        <Skeleton className="h-10 w-full mb-4" />
+        <div className="space-y-2">
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function JidlaPageContent() {
   const { dishes } = useGastro();
   const searchParams = useSearchParams();
   const isMobile = useIsMobile();
@@ -183,5 +206,13 @@ export default function JidlaPage() {
         dish={editingDish}
       />
     </div>
+  );
+}
+
+export default function JidlaPage() {
+  return (
+    <React.Suspense fallback={<JidlaPageSkeleton />}>
+      <JidlaPageContent />
+    </React.Suspense>
   );
 }

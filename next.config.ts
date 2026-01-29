@@ -1,9 +1,9 @@
-import type {NextConfig} from 'next';
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: true, // Ignorujeme chyby typechecku při buildu
   },
   eslint: {
     ignoreDuringBuilds: true,

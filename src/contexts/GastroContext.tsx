@@ -46,8 +46,10 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
   const supabase = createClient();
 
-  // Allergens stay in localStorage (static EU list)
-  const [allergens, setAllergens] = useLocalStorage<Allergen[]>('allergens', initialAllergensWithIds);
+  const storagePrefix = user ? `user_${user.id}_` : 'guest_';
+
+  // Allergens stay in localStorage (static EU list) - per user to allow custom modifications
+  const [allergens, setAllergens] = useLocalStorage<Allergen[]>(`${storagePrefix}allergens`, initialAllergensWithIds);
 
   // Migration: Ensure standard allergens use numeric IDs
   useEffect(() => {
@@ -57,8 +59,8 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [allergens, setAllergens]);
 
-  const [menuHistory, setMenuHistory] = useLocalStorage<MenuHistoryItem[]>('menuHistory', []);
-  const [currentMenu, setCurrentMenu] = useLocalStorage<Dish[] | null>('currentMenu', null);
+  const [menuHistory, setMenuHistory] = useLocalStorage<MenuHistoryItem[]>(`${storagePrefix}menuHistory`, []);
+  const [currentMenu, setCurrentMenu] = useLocalStorage<Dish[] | null>(`${storagePrefix}currentMenu`, null);
 
   // Dishes come from Supabase
   const [dishes, setDishes] = useState<Dish[]>([]);

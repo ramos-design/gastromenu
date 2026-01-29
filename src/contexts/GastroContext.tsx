@@ -248,16 +248,9 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
   const deleteDish = useCallback(async (id: string) => {
     if (!user) return;
 
-    // Remove from current menu if present
-    setCurrentMenu(prev => {
-      if (prev && prev.some(d => d.id === id)) {
-        return prev.filter(d => d.id !== id);
-      }
-      return prev;
-    });
-
-    // Update local state immediately
-    setDishes(prev => prev.filter(d => d.id !== id));
+    // We intentionally SKIP optimistic updates (setDishes/setCurrentMenu) here
+    // to prevent React render cycles/freezes that were happening on delete.
+    // The calling component is expected to trigger a reload or refetch.
 
     const { error } = await supabase
       .from('menu_items')
@@ -265,12 +258,10 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
       .eq('id', id);
 
     if (error) {
-      // Rollback by refetching
       console.error('Error deleting dish:', error);
-      fetchDishes();
       throw error;
     }
-  }, [user, supabase, fetchDishes, setCurrentMenu]);
+  }, [user, supabase]);
 
   const addAllergen = useCallback((allergen: Omit<Allergen, 'id'>) => {
     setAllergens(prev => [...prev, { ...allergen, id: generateId() }]);

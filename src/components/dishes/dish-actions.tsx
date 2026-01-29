@@ -37,6 +37,15 @@ export function DishActions({ dish, onEdit }: DishActionsProps) {
         isOpen={isConfirmOpen}
         onClose={() => setConfirmOpen(false)}
         onConfirm={async () => {
+          // Prevent Radix UI from trying to restore focus to an element that will be removed
+          if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+          }
+
+          // Wait for the dialog closing animation to finish/start
+          // This prevents "React state update on unmounted component" and focus trap issues
+          await new Promise(resolve => setTimeout(resolve, 300));
+
           try {
             await deleteDish(dish.id);
           } catch (error) {

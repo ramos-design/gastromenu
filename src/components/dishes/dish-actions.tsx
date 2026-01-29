@@ -36,10 +36,12 @@ export function DishActions({ dish, onEdit }: DishActionsProps) {
       <ConfirmDialog
         isOpen={isConfirmOpen}
         onClose={() => setConfirmOpen(false)}
-        onConfirm={() => {
-          // Add a small delay to allow the dialog to start its closing animation
-          // before the parent component is unmounted by the state change.
-          setTimeout(() => deleteDish(dish.id), 100);
+        onConfirm={async () => {
+          try {
+            await deleteDish(dish.id);
+          } catch (error) {
+            console.error("Failed to delete dish:", error);
+          }
         }}
         title={`Smazat jídlo: ${dish.title_cz}?`}
         description="Tato akce je nevratná. Opravdu si přejete smazat toto jídlo?"

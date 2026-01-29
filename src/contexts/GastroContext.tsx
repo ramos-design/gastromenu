@@ -75,41 +75,41 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
     return [...menuHistory].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [menuHistory]);
 
-  // Fetch dishes from Supabase
-  useEffect(() => {
+  const fetchDishes = useCallback(async () => {
     if (!user) {
       setDishes([]);
       setIsLoading(false);
       return;
     }
 
-    const fetchDishes = async () => {
-      setIsLoading(true);
-      const { data, error } = await supabase
-        .from('menu_items')
-        .select('*')
-        .order('created_at', { ascending: false });
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from('menu_items')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching dishes:', error);
-      } else {
-        // Map database fields to Dish type
-        const mappedDishes: Dish[] = (data || []).map(item => ({
-          id: item.id,
-          user_id: item.user_id,
-          title_cz: item.title_cz,
-          title_en: item.title_en || '',
-          price: parseFloat(item.price),
-          category: item.category,
-          allergens: item.allergens || [],
-          created_at: item.created_at,
-          updated_at: item.updated_at,
-        }));
-        setDishes(mappedDishes);
-      }
-      setIsLoading(false);
-    };
+    if (error) {
+      console.error('Error fetching dishes:', error);
+    } else {
+      // Map database fields to Dish type
+      const mappedDishes: Dish[] = (data || []).map(item => ({
+        id: item.id,
+        user_id: item.user_id,
+        title_cz: item.title_cz,
+        title_en: item.title_en || '',
+        price: parseFloat(item.price),
+        category: item.category,
+        allergens: item.allergens || [],
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+      }));
+      setDishes(mappedDishes);
+    }
+    setIsLoading(false);
+  }, [user, supabase]);
 
+  // Initial fetch
+  useEffect(() => {
     fetchDishes();
 
     // Set up real-time subscription
@@ -121,7 +121,7 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
           event: '*',
           schema: 'public',
           table: 'menu_items',
-          filter: `user_id=eq.${user.id}`,
+          filter: `user_id=eq.${user?.id}`,
         },
         (payload) => {
           if (payload.eventType === 'INSERT') {
@@ -164,7 +164,7 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, supabase]);
+  }, [fetchDishes, supabase, user?.id]);
 
 
   const addDish = useCallback(async (dishData: Omit<Dish, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
@@ -197,9 +197,9 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
       .single();
 
     if (error) {
-      // Rollback on error
-      setDishes(prev => prev.filter(d => d.id !== tempId));
+      // Rollback by refetching
       console.error('Error adding dish:', error);
+      fetchDishes();
       throw error;
     }
 
@@ -218,13 +218,10 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
       };
       setDishes(prev => prev.map(d => d.id === tempId ? newDish : d));
     }
-  }, [user, supabase]);
+  }, [user, supabase, fetchDishes]);
 
   const updateDish = useCallback(async (updatedDish: Dish) => {
     if (!user) return;
-
-    // Save previous state for rollback
-    const previousDishes = [...dishes];
 
     // Update local state immediately
     setDishes(prev => prev.map(d => d.id === updatedDish.id ? updatedDish : d));
@@ -241,23 +238,23 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
       .eq('id', updatedDish.id);
 
     if (error) {
-      // Rollback on error
-      setDishes(previousDishes);
+      // Rollback by refetching
       console.error('Error updating dish:', error);
+      fetchDishes();
       throw error;
     }
-  }, [user, supabase, dishes]);
+  }, [user, supabase, fetchDishes]);
 
   const deleteDish = useCallback(async (id: string) => {
     if (!user) return;
 
-    // Save previous state for rollback
-    const previousDishes = [...dishes];
-
     // Remove from current menu if present
-    if (currentMenu && currentMenu.some(d => d.id === id)) {
-      setCurrentMenu(currentMenu.filter(d => d.id !== id));
-    }
+    setCurrentMenu(prev => {
+      if (prev && prev.some(d => d.id === id)) {
+        return prev.filter(d => d.id !== id);
+      }
+      return prev;
+    });
 
     // Update local state immediately
     setDishes(prev => prev.filter(d => d.id !== id));
@@ -268,12 +265,12 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
       .eq('id', id);
 
     if (error) {
-      // Rollback on error
-      setDishes(previousDishes);
+      // Rollback by refetching
       console.error('Error deleting dish:', error);
+      fetchDishes();
       throw error;
     }
-  }, [user, supabase, dishes, currentMenu, setCurrentMenu]);
+  }, [user, supabase, fetchDishes, setCurrentMenu]);
 
   const addAllergen = useCallback((allergen: Omit<Allergen, 'id'>) => {
     setAllergens(prev => [...prev, { ...allergen, id: generateId() }]);

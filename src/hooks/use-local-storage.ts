@@ -18,30 +18,31 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val
 
   const setValue = useCallback((value: T | ((val: T) => T)) => {
     try {
-      const valueToStore = value instanceof Function ? value(storedValue) : value;
-      setStoredValue(valueToStore);
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem(key, JSON.stringify(valueToStore));
-      }
+      setStoredValue((currentValue) => {
+        const valueToStore = value instanceof Function ? value(currentValue) : value;
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem(key, JSON.stringify(valueToStore));
+        }
+        return valueToStore;
+      });
     } catch (error) {
       console.error(error);
     }
-  }, [key, storedValue]);
+  }, [key]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const item = window.localStorage.getItem(key);
       if (item) {
         try {
-          setStoredValue(JSON.parse(item));
+          const parsed = JSON.parse(item);
+          setStoredValue(parsed);
         } catch (error) {
           console.error(error);
-          window.localStorage.setItem(key, JSON.stringify(initialValue));
-          setStoredValue(initialValue);
         }
       }
     }
-  }, [key, initialValue]);
+  }, [key]);
 
 
   return [storedValue, setValue];

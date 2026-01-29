@@ -14,6 +14,14 @@ import { Download, FileText, Globe, Image as ImageIcon, Pilcrow, Loader2 } from 
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useToast } from '@/hooks/use-toast';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 type MenuOutput = {
   type: 'pdf' | 'post' | 'web' | null;
@@ -294,25 +302,38 @@ export default function ExportPage() {
             <CardDescription>Zkontrolujte sestavené menu.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {sortedMenu.map(dish => (
-                <div key={dish.id} className="p-4 border rounded-lg bg-background/50">
-                  <p className="font-semibold">{lang === 'cz' ? dish.title_cz : dish.title_en}</p>
-                  <div className="flex flex-col text-sm text-muted-foreground mt-2">
-                    <div className="flex justify-between items-start mb-2">
-                      <span>Cena:</span>
-                      <span className="font-medium text-foreground">{dish.price} Kč</span>
-                    </div>
-                    <div className="flex justify-between items-start">
-                      <span>Alergeny:</span>
-                      <div className="flex items-center gap-2 flex-wrap justify-end max-w-[70%]">
-                        {dish.allergens.map(id => <Badge key={id} variant="secondary">{getAllergenNumber(id)}</Badge>)}
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[70%]">Název jídla</TableHead>
+                  <TableHead className="text-right">Cena</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sortedMenu.map((dish) => (
+                  <TableRow key={dish.id}>
+                    <TableCell>
+                      <div className="font-medium">
+                        {lang === 'cz' ? dish.title_cz : dish.title_en}
                       </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                      <div className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
+                        <span className="text-xs">Alergeny:</span>
+                        <div className="flex gap-1">
+                          {dish.allergens.map(id => (
+                            <Badge key={id} variant="secondary" className="px-1 py-0 text-[10px]">
+                              {getAllergenNumber(id)}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right align-top pt-4 font-bold">
+                      {dish.price} Kč
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       )}
@@ -324,15 +345,53 @@ export default function ExportPage() {
           <h3 className="text-xl font-semibold">Generovat výstupy</h3>
           <p className="text-muted-foreground">Vytvořte z menu podklady pro tisk, sociální sítě nebo web.</p>
         </div>
-        <div className="flex flex-wrap justify-center gap-4">
-          <Button variant="outline" onClick={() => handleGenerate('pdf')} disabled={output.loading}>
-            {output.loading && output.type === 'pdf' ? 'Generuji...' : <><FileText className="mr-2 h-4 w-4" /> Vygenerovat k tisku</>}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Button
+            variant="outline"
+            onClick={() => handleGenerate('pdf')}
+            disabled={output.loading}
+            className="h-auto py-8 px-6 flex flex-col items-center gap-4 hover:bg-muted/50 transition-all border-2"
+          >
+            {output.loading && output.type === 'pdf' ? (
+              <div className="flex flex-col items-center gap-2">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                <span className="text-sm font-medium">Generuje se Menu, prosím o strpení...</span>
+              </div>
+            ) : (
+              <>
+                <FileText className="w-10 h-10 text-primary" />
+                <div className="space-y-1 text-center">
+                  <span className="font-bold text-lg block">Tiskové PDF</span>
+                  <span className="text-xs text-muted-foreground font-normal block">Vygenerovat menu k tisku</span>
+                </div>
+              </>
+            )}
           </Button>
-          <Button variant="outline" onClick={() => handleGenerate('post')} disabled={output.loading}>
-            {output.loading && output.type === 'post' ? 'Generuji...' : <><ImageIcon className="mr-2 h-4 w-4" /> Vygenerovat jako příspěvek</>}
+
+          <Button
+            variant="outline"
+            onClick={() => handleGenerate('post')}
+            disabled={output.loading}
+            className="h-auto py-8 px-6 flex flex-col items-center gap-4 hover:bg-muted/50 transition-all border-2"
+          >
+            <ImageIcon className="w-10 h-10 text-pink-500" />
+            <div className="space-y-1 text-center">
+              <span className="font-bold text-lg block">Sociální sítě</span>
+              <span className="text-xs text-muted-foreground font-normal block">Příspěvky pro Instagram/FB</span>
+            </div>
           </Button>
-          <Button variant="outline" onClick={() => handleGenerate('web')} disabled={output.loading}>
-            {output.loading && output.type === 'web' ? 'Odesílám...' : <><Globe className="mr-2 h-4 w-4" /> Odeslat na web</>}
+
+          <Button
+            variant="outline"
+            onClick={() => handleGenerate('web')}
+            disabled={output.loading}
+            className="h-auto py-8 px-6 flex flex-col items-center gap-4 hover:bg-muted/50 transition-all border-2"
+          >
+            <Globe className="w-10 h-10 text-blue-500" />
+            <div className="space-y-1 text-center">
+              <span className="font-bold text-lg block">Webové stránky</span>
+              <span className="text-xs text-muted-foreground font-normal block">Propsat na web restaurace</span>
+            </div>
           </Button>
         </div>
         <div className="pt-4">{renderOutput()}</div>

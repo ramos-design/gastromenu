@@ -63,12 +63,14 @@ export default function SestavMenuPage() {
         <p className="text-muted-foreground">Vyberte jídla pro sestavení týdenního menu.</p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+        {/* Soups Section */}
         <Card className="glass-card">
-          <CardHeader><CardTitle>Výběr jídel</CardTitle></CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="space-y-4">
-              <h3 className="font-semibold text-lg">Polévky</h3>
+          <CardHeader>
+            <CardTitle>Polévky</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {[1, 2].map(i => (
                 <Controller
                   key={`soup${i}`}
@@ -90,36 +92,43 @@ export default function SestavMenuPage() {
                 />
               ))}
             </div>
-            <div className="space-y-4 lg:col-span-2">
-              <h3 className="font-semibold text-lg">Hlavní jídla</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {[1, 2, 3, 4].map(i => (
-                  <Controller
-                    key={`main${i}`}
-                    name={`main${i}` as keyof MenuFormValues}
-                    control={control}
-                    render={({ field }) => (
-                      <div className="space-y-2">
-                        <Label>Hlavní jídlo {i}</Label>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <SelectTrigger><SelectValue placeholder="Vyberte hlavní jídlo" /></SelectTrigger>
-                          <SelectContent>
-                            {mainDishes.map(dish => (
-                              <SelectItem key={dish.id} value={dish.id}>{dish.title_cz}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                  />
-                ))}
-              </div>
+          </CardContent>
+        </Card>
+
+        {/* Main Dishes Section */}
+        <Card className="glass-card">
+          <CardHeader>
+            <CardTitle>Hlavní jídla</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {[1, 2, 3, 4].map(i => (
+                <Controller
+                  key={`main${i}`}
+                  name={`main${i}` as keyof MenuFormValues}
+                  control={control}
+                  render={({ field }) => (
+                    <div className="space-y-2">
+                      <Label>Hlavní jídlo {i}</Label>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <SelectTrigger><SelectValue placeholder="Vyberte hlavní jídlo" /></SelectTrigger>
+                        <SelectContent>
+                          {mainDishes.map(dish => (
+                            <SelectItem key={dish.id} value={dish.id}>{dish.title_cz}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                />
+              ))}
             </div>
           </CardContent>
-          <CardFooter>
-            <Button type="submit">Uložit a přejít na export</Button>
-          </CardFooter>
         </Card>
+
+        <div className="flex justify-end">
+          <Button type="submit" size="lg">Uložit a přejít na export</Button>
+        </div>
       </form>
     </div>
   );

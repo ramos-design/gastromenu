@@ -48,6 +48,8 @@ export function DishActions({ dish, onEdit }: DishActionsProps) {
 
           try {
             await deleteDish(dish.id);
+            // Force reload to prevent app freezing due to complex UI state/focus trap issues
+            window.location.reload();
           } catch (error) {
             console.error("Failed to delete dish:", error);
           }

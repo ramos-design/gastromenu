@@ -37,19 +37,20 @@ export function DishActions({ dish, onEdit }: DishActionsProps) {
         isOpen={isConfirmOpen}
         onClose={() => setConfirmOpen(false)}
         onConfirm={async () => {
-          // Prevent Radix UI from trying to restore focus to an element that will be removed
+          // Safari specific fix: Aggressively unset focus
           if (document.activeElement instanceof HTMLElement) {
             document.activeElement.blur();
           }
-
-          // Wait for the dialog closing animation to finish/start
-          // This prevents "React state update on unmounted component" and focus trap issues
-          await new Promise(resolve => setTimeout(resolve, 300));
+          document.body.focus(); // Ensure focus lands safely on body
 
           try {
             await deleteDish(dish.id);
-            // Force reload to prevent app freezing due to complex UI state/focus trap issues
-            window.location.reload();
+
+            // Give Safari enough time (>300ms) to finish UI updates/Dialog closing
+            // before forcing a reload.
+            setTimeout(() => {
+              window.location.reload();
+            }, 500);
           } catch (error) {
             console.error("Failed to delete dish:", error);
           }

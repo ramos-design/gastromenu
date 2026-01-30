@@ -83,9 +83,9 @@ export default function DashboardPage() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-primary" />
-              <CardTitle className="text-lg">Poslední exportované menu</CardTitle>
+              <CardTitle className="text-lg">Vytvořené menu</CardTitle>
             </div>
-            <CardDescription>Tiskové PDF</CardDescription>
+            <CardDescription>Poslední export</CardDescription>
           </CardHeader>
           <CardContent>
             {lastExports.pdf ? (
@@ -103,7 +103,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                <Button asChild variant="outline" size="sm" className="w-full mt-2">
+                <Button asChild className="w-full mt-2 h-10 bg-green-100 text-green-700 hover:bg-green-200 border-0 shadow-none font-semibold">
                   <Link href="/historie">
                     Zobrazit v historii
                   </Link>

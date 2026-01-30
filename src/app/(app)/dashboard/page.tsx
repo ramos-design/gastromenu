@@ -64,10 +64,10 @@ export default function DashboardPage() {
         </Card>
 
         {/* Action Shortcuts */}
-        <Card className="glass-card lg:col-span-1 p-0 aspect-square overflow-hidden hover:scale-[1.02] transition-transform">
-          <Link href="/sestav-menu" className="flex flex-col items-center justify-center w-full h-full bg-primary text-primary-foreground hover:bg-primary/90 p-6">
-            <ListPlus className="h-12 w-12 mb-4" />
-            <span className="text-xl font-bold text-center">Sestavit menu</span>
+        <Card className="glass-card p-0 w-44 h-44 overflow-hidden hover:scale-[1.05] transition-transform shadow-lg rounded-2xl">
+          <Link href="/sestav-menu" className="flex flex-col items-center justify-center w-full h-full bg-primary text-primary-foreground hover:bg-primary/90 p-4 gap-2">
+            <ListPlus className="h-10 w-10" />
+            <span className="text-lg font-bold text-center leading-tight">Sestavit menu</span>
           </Link>
         </Card>
 

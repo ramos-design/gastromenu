@@ -38,13 +38,13 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Vítejte v Gastro Menu</h1>
-        <p className="text-muted-foreground">Přehled vaší administrace.</p>
+        <h1 className="text-3xl font-bold tracking-tight">Vítej v No Gluten No Problem</h1>
+        <p className="text-muted-foreground">Přehled tvoji menu administrace.</p>
       </div>
 
       <div className="flex flex-wrap gap-6">
         {/* Total Dishes Tile */}
-        <Card className="glass-card p-0 w-44 h-44 overflow-hidden shadow-lg rounded-2xl flex flex-col items-center justify-center bg-card/50">
+        <Card className="glass-card p-0 w-80 h-44 overflow-hidden shadow-lg rounded-2xl flex flex-col items-center justify-center bg-card/50">
           <div className="flex flex-col items-center gap-2 p-4">
             <span className="text-sm font-medium text-muted-foreground text-center uppercase tracking-wide">Celkem jídel</span>
             <div className="flex items-center gap-3">
@@ -55,17 +55,17 @@ export default function DashboardPage() {
         </Card>
 
         {/* Add New Dish Button */}
-        <Card className="glass-card p-0 w-44 h-44 overflow-hidden hover:scale-[1.05] transition-transform shadow-lg rounded-2xl border-0">
+        <Card className="glass-card p-0 w-80 h-44 overflow-hidden hover:scale-[1.05] transition-transform shadow-lg rounded-2xl border-0">
           <Link href="/jidla?action=add" className="flex flex-col items-center justify-center w-full h-full bg-blue-600 text-white hover:bg-blue-700 p-4 gap-2">
             <div className="rounded-full bg-white/20 p-2">
               <ListPlus className="h-8 w-8 text-white" />
             </div>
-            <span className="text-lg font-bold text-center leading-tight">Přidat<br />nové jídlo</span>
+            <span className="text-lg font-bold text-center leading-tight">Přidat nové jídlo</span>
           </Link>
         </Card>
 
         {/* Action Shortcuts */}
-        <Card className="glass-card p-0 w-44 h-44 overflow-hidden hover:scale-[1.05] transition-transform shadow-lg rounded-2xl">
+        <Card className="glass-card p-0 w-80 h-44 overflow-hidden hover:scale-[1.05] transition-transform shadow-lg rounded-2xl">
           <Link href="/sestav-menu" className="flex flex-col items-center justify-center w-full h-full bg-primary text-primary-foreground hover:bg-primary/90 p-4 gap-2">
             <ListPlus className="h-10 w-10" />
             <span className="text-lg font-bold text-center leading-tight">Sestavit menu</span>

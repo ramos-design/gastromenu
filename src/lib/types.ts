@@ -24,6 +24,7 @@ export type MenuHistoryItem = {
   date: string; // ISO string
   dishes: Dish[];
   exportType?: 'pdf' | 'post' | 'web';
+  variant?: MenuVariant;
 };
 
 export type MenuVariant = 'breakfast' | 'standard' | 'weekly';

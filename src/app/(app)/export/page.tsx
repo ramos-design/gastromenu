@@ -75,7 +75,7 @@ function ExportPageContent() {
 
     const onGenerationSuccess = () => {
       if (currentMenu && currentMenu.length > 0) {
-        addMenuToHistory(currentMenu, output.type || undefined);
+        addMenuToHistory(currentMenu, output.type || undefined, activeTab);
       }
     };
 

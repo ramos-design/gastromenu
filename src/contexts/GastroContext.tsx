@@ -135,12 +135,24 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
     if (historyError) {
       console.error('Error fetching history:', historyError);
     } else if (historyData) {
-      const mappedHistory: MenuHistoryItem[] = historyData.map(item => ({
-        id: item.id,
-        date: item.created_at,
-        dishes: item.dishes as Dish[],
-        exportType: item.export_type
-      }));
+      const mappedHistory: MenuHistoryItem[] = historyData.map(item => {
+        let exportType = item.export_type as 'pdf' | 'post' | 'web' | undefined;
+        let variant: MenuVariant | undefined = undefined;
+
+        if (item.export_type && item.export_type.includes(':')) {
+          const [v, t] = item.export_type.split(':');
+          variant = v as MenuVariant;
+          exportType = t as 'pdf' | 'post' | 'web';
+        }
+
+        return {
+          id: item.id,
+          date: item.created_at,
+          dishes: item.dishes as Dish[],
+          exportType,
+          variant
+        };
+      });
       setMenuHistory(mappedHistory);
     }
 
@@ -272,7 +284,7 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
     return dishes.some(dish => dish.allergens.includes(id));
   }, [dishes]);
 
-  const addMenuToHistory = useCallback(async (dishes: Dish[], exportType?: 'pdf' | 'post' | 'web') => {
+  const addMenuToHistory = useCallback(async (dishes: Dish[], exportType?: 'pdf' | 'post' | 'web', variant?: MenuVariant) => {
     if (!user) return;
 
     const tempId = generateId();
@@ -281,15 +293,22 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
       date: new Date().toISOString(),
       dishes: dishes,
       exportType,
+      variant
     };
 
     // Optimistic update
     setMenuHistory(prev => [newHistoryItem, ...(prev || [])]);
 
+    // Construct persistent export type: "variant:type" or just "type"
+    let dbExportType = exportType;
+    if (variant && exportType) {
+      dbExportType = `${variant}:${exportType}` as any;
+    }
+
     const { data, error } = await supabase.from('menu_history').insert({
       user_id: user.id,
       dishes: dishes, // Supabase handles JSON serialization
-      export_type: exportType
+      export_type: dbExportType
     }).select().single();
 
     if (error) {

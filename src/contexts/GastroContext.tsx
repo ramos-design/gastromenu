@@ -35,7 +35,7 @@ interface GastroContextType {
   addAllergen: (allergen: Omit<Allergen, 'id'>) => void;
   updateAllergen: (allergen: Allergen) => void;
   deleteAllergen: (id: string) => void;
-  addMenuToHistory: (dishes: Dish[], exportType?: 'pdf' | 'post' | 'web') => Promise<void>;
+  addMenuToHistory: (dishes: Dish[], exportType?: 'pdf' | 'post' | 'web', variant?: MenuVariant) => Promise<void>;
   deleteMenuFromHistory: (id: string) => Promise<void>;
   isAllergenInUse: (id: string) => boolean;
 }

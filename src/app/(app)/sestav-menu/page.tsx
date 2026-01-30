@@ -101,7 +101,7 @@ function MenuForm({ variant, soupsCount, mainsCount, mainsCategory = 'Hlavní j�
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 mt-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
       {/* Soups Section */}
       {soupsCount > 0 && (
         <Card className="glass-card">
@@ -183,50 +183,50 @@ export default function SestavMenuPage() {
         <p className="text-muted-foreground">Vyberte variantu menu, kterou chcete sestavit.</p>
       </div>
 
-      <Tabs defaultValue="weekly" className="w-full">
-        <div className="flex justify-center w-full mb-8">
-          <TabsList className="grid w-full max-w-3xl grid-cols-3 h-auto p-1 gap-2 bg-transparent">
-            <TabsTrigger
-              value="breakfast"
-              className="bg-muted/20 data-[state=active]:bg-orange-100 data-[state=active]:text-orange-900 data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-orange-200 py-3 text-base rounded-lg transition-all"
-            >
-              Snídaně
-            </TabsTrigger>
-            <TabsTrigger
-              value="standard"
-              className="bg-muted/20 data-[state=active]:bg-blue-100 data-[state=active]:text-blue-900 data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-blue-200 py-3 text-base rounded-lg transition-all"
-            >
-              Jídelní menu
-            </TabsTrigger>
-            <TabsTrigger
-              value="weekly"
-              className="bg-muted/20 data-[state=active]:bg-green-100 data-[state=active]:text-green-900 data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-green-200 py-3 text-base rounded-lg transition-all"
-            >
-              Týdenní menu
-            </TabsTrigger>
-          </TabsList>
+      <Tabs defaultValue="weekly" className="flex flex-col md:flex-row gap-8 items-start w-full">
+        <TabsList className="flex flex-col w-full md:w-64 h-auto p-1 gap-2 bg-transparent shrink-0">
+          <TabsTrigger
+            value="breakfast"
+            className="w-full justify-start px-4 py-3 text-base bg-muted/20 data-[state=active]:bg-orange-100 data-[state=active]:text-orange-900 border border-transparent data-[state=active]:border-orange-200 rounded-lg transition-all"
+          >
+            Snídaně
+          </TabsTrigger>
+          <TabsTrigger
+            value="standard"
+            className="w-full justify-start px-4 py-3 text-base bg-muted/20 data-[state=active]:bg-blue-100 data-[state=active]:text-blue-900 border border-transparent data-[state=active]:border-blue-200 rounded-lg transition-all"
+          >
+            Jídelní menu
+          </TabsTrigger>
+          <TabsTrigger
+            value="weekly"
+            className="w-full justify-start px-4 py-3 text-base bg-muted/20 data-[state=active]:bg-green-100 data-[state=active]:text-green-900 border border-transparent data-[state=active]:border-green-200 rounded-lg transition-all"
+          >
+            Týdenní menu
+          </TabsTrigger>
+        </TabsList>
+
+        <div className="flex-1 w-full">
+          <TabsContent value="breakfast" className="mt-0">
+            <div className="space-y-4">
+              <CardDescription>Sestavte snídaňovou nabídku. Můžete vybrat až 4 snídaňová jídla.</CardDescription>
+              <MenuForm variant="breakfast" soupsCount={0} mainsCount={4} mainsCategory="Snídaně" />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="standard" className="mt-0">
+            <div className="space-y-4">
+              <CardDescription>Sestavte klasické jídelní menu (2 polévky + 4 hlavní jídla).</CardDescription>
+              <MenuForm variant="standard" soupsCount={2} mainsCount={4} />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="weekly" className="mt-0">
+            <div className="space-y-4">
+              <CardDescription>Sestavte týdenní menu (2 polévky + 6 hlavních jídel).</CardDescription>
+              <MenuForm variant="weekly" soupsCount={2} mainsCount={6} />
+            </div>
+          </TabsContent>
         </div>
-
-        <TabsContent value="breakfast">
-          <div className="space-y-4">
-            <CardDescription>Sestavte snídaňovou nabídku. Můžete vybrat až 4 snídaňová jídla.</CardDescription>
-            <MenuForm variant="breakfast" soupsCount={0} mainsCount={4} mainsCategory="Snídaně" />
-          </div>
-        </TabsContent>
-
-        <TabsContent value="standard">
-          <div className="space-y-4">
-            <CardDescription>Sestavte klasické jídelní menu (2 polévky + 4 hlavní jídla).</CardDescription>
-            <MenuForm variant="standard" soupsCount={2} mainsCount={4} />
-          </div>
-        </TabsContent>
-
-        <TabsContent value="weekly">
-          <div className="space-y-4">
-            <CardDescription>Sestavte týdenní menu (2 polévky + 6 hlavních jídel).</CardDescription>
-            <MenuForm variant="weekly" soupsCount={2} mainsCount={6} />
-          </div>
-        </TabsContent>
       </Tabs>
     </div>
   );

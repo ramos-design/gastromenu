@@ -300,31 +300,29 @@ function ExportPageContent() {
         <p className="text-muted-foreground">Zkontrolujte sestavené menu a vygenerujte výstupy.</p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as MenuVariant)} className="w-full">
-        <div className="flex justify-center w-full mb-8">
-          <TabsList className="grid w-full max-w-3xl grid-cols-3 h-auto p-1 gap-2 bg-transparent">
-            <TabsTrigger
-              value="breakfast"
-              className="bg-muted/20 data-[state=active]:bg-orange-100 data-[state=active]:text-orange-900 data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-orange-200 py-3 text-base rounded-lg transition-all"
-            >
-              Snídaně
-            </TabsTrigger>
-            <TabsTrigger
-              value="standard"
-              className="bg-muted/20 data-[state=active]:bg-blue-100 data-[state=active]:text-blue-900 data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-blue-200 py-3 text-base rounded-lg transition-all"
-            >
-              Jídelní menu
-            </TabsTrigger>
-            <TabsTrigger
-              value="weekly"
-              className="bg-muted/20 data-[state=active]:bg-green-100 data-[state=active]:text-green-900 data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-green-200 py-3 text-base rounded-lg transition-all"
-            >
-              Týdenní menu
-            </TabsTrigger>
-          </TabsList>
-        </div>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as MenuVariant)} className="flex flex-col md:flex-row gap-8 items-start w-full">
+        <TabsList className="flex flex-col w-full md:w-64 h-auto p-1 gap-2 bg-transparent shrink-0">
+          <TabsTrigger
+            value="breakfast"
+            className="w-full justify-start px-4 py-3 text-base bg-muted/20 data-[state=active]:bg-orange-100 data-[state=active]:text-orange-900 border border-transparent data-[state=active]:border-orange-200 rounded-lg transition-all"
+          >
+            Snídaně
+          </TabsTrigger>
+          <TabsTrigger
+            value="standard"
+            className="w-full justify-start px-4 py-3 text-base bg-muted/20 data-[state=active]:bg-blue-100 data-[state=active]:text-blue-900 border border-transparent data-[state=active]:border-blue-200 rounded-lg transition-all"
+          >
+            Jídelní menu
+          </TabsTrigger>
+          <TabsTrigger
+            value="weekly"
+            className="w-full justify-start px-4 py-3 text-base bg-muted/20 data-[state=active]:bg-green-100 data-[state=active]:text-green-900 border border-transparent data-[state=active]:border-green-200 rounded-lg transition-all"
+          >
+            Týdenní menu
+          </TabsTrigger>
+        </TabsList>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+        <div className="flex-1 w-full grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
           {/* Left Column - Content (Preview or Result) */}
           <div className="lg:col-span-2 space-y-6">
             {!currentMenu || currentMenu.length === 0 ? (

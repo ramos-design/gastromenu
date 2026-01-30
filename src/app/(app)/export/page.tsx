@@ -195,17 +195,15 @@ export default function ExportPage() {
           if (generatedPdfImage) {
             return (
               <Card className="glass-card">
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle>Náhled pro tisk</CardTitle>
+                  <Button onClick={handleDownload} size="sm">
+                    <Download className="mr-2 h-4 w-4" /> Stáhnout obrázek
+                  </Button>
                 </CardHeader>
                 <CardContent>
                   <Image src={generatedPdfImage} alt="Vygenerované menu pro tisk" width={800} height={1128} className="rounded-lg border shadow-md w-full h-auto" />
                 </CardContent>
-                <CardFooter>
-                  <Button onClick={handleDownload}>
-                    <Download className="mr-2 h-4 w-4" /> Stáhnout obrázek
-                  </Button>
-                </CardFooter>
               </Card>
             );
           }
@@ -365,7 +363,7 @@ export default function ExportPage() {
                   <FileText className="w-8 h-8 text-primary" />
                 )}
                 <div className="space-y-1">
-                  <span className="font-bold block">Tiskové PDF</span>
+                  <span className="font-bold block">Tiskové menu</span>
                   <span className="text-xs text-muted-foreground font-normal block">Vygenerovat menu k tisku</span>
                 </div>
               </Button>

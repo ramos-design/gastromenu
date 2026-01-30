@@ -23,6 +23,8 @@ type MenuFormValues = {
   main2?: string;
   main3?: string;
   main4?: string;
+  main5?: string;
+  main6?: string;
 };
 
 export default function SestavMenuPage() {
@@ -102,7 +104,7 @@ export default function SestavMenuPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {[1, 2, 3, 4].map(i => (
+              {[1, 2, 3, 4, 5, 6].map(i => (
                 <Controller
                   key={`main${i}`}
                   name={`main${i}` as keyof MenuFormValues}

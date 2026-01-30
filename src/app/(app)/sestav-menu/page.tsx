@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
 import type { MenuVariant } from '@/lib/types';
 
 type MenuFormProps = {
@@ -187,15 +188,19 @@ export default function SestavMenuPage() {
         <TabsList className="flex flex-col w-full md:w-64 h-auto p-1 gap-2 bg-transparent shrink-0">
           <TabsTrigger
             value="breakfast"
-            className="w-full justify-start px-4 py-3 text-base bg-muted/20 data-[state=active]:bg-orange-100 data-[state=active]:text-orange-900 border border-transparent data-[state=active]:border-orange-200 rounded-lg transition-all"
+            disabled
+            className="w-full justify-between px-4 py-3 text-base bg-muted/20 opacity-50 cursor-not-allowed data-[state=active]:bg-orange-100 data-[state=active]:text-orange-900 border border-transparent data-[state=active]:border-orange-200 rounded-lg transition-all"
           >
-            Snídaně
+            <span>Snídaně</span>
+            <Badge variant="outline" className="text-[10px] h-5 bg-background/50">Již brzy</Badge>
           </TabsTrigger>
           <TabsTrigger
             value="standard"
-            className="w-full justify-start px-4 py-3 text-base bg-muted/20 data-[state=active]:bg-blue-100 data-[state=active]:text-blue-900 border border-transparent data-[state=active]:border-blue-200 rounded-lg transition-all"
+            disabled
+            className="w-full justify-between px-4 py-3 text-base bg-muted/20 opacity-50 cursor-not-allowed data-[state=active]:bg-blue-100 data-[state=active]:text-blue-900 border border-transparent data-[state=active]:border-blue-200 rounded-lg transition-all"
           >
-            Jídelní menu
+            <span>Jídelní menu</span>
+            <Badge variant="outline" className="text-[10px] h-5 bg-background/50">Již brzy</Badge>
           </TabsTrigger>
           <TabsTrigger
             value="weekly"

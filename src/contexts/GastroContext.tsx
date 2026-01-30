@@ -35,7 +35,7 @@ interface GastroContextType {
   addAllergen: (allergen: Omit<Allergen, 'id'>) => void;
   updateAllergen: (allergen: Allergen) => void;
   deleteAllergen: (id: string) => void;
-  addMenuToHistory: (dishes: Dish[]) => void;
+  addMenuToHistory: (dishes: Dish[], exportType?: 'pdf' | 'post' | 'web') => void;
   deleteMenuFromHistory: (id: string) => void;
   isAllergenInUse: (id: string) => boolean;
 }
@@ -233,11 +233,12 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
     return dishes.some(dish => dish.allergens.includes(id));
   }, [dishes]);
 
-  const addMenuToHistory = useCallback((dishes: Dish[]) => {
+  const addMenuToHistory = useCallback((dishes: Dish[], exportType?: 'pdf' | 'post' | 'web') => {
     const newHistoryItem: MenuHistoryItem = {
       id: generateId(),
       date: new Date().toISOString(),
       dishes: dishes,
+      exportType,
     };
     setMenuHistory(prev => [newHistoryItem, ...(prev || [])]);
   }, [setMenuHistory]);

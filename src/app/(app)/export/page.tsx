@@ -58,7 +58,7 @@ export default function ExportPage() {
 
     const onGenerationSuccess = () => {
       if (currentMenu && currentMenu.length > 0) {
-        addMenuToHistory(currentMenu);
+        addMenuToHistory(currentMenu, output.type || undefined);
       }
     };
 

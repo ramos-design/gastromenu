@@ -23,4 +23,5 @@ export type MenuHistoryItem = {
   id: string;
   date: string; // ISO string
   dishes: Dish[];
+  exportType?: 'pdf' | 'post' | 'web';
 };

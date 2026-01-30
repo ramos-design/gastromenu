@@ -225,11 +225,6 @@ function ExportPageContent() {
                 <CardContent>
                   <Image src={generatedPdfImage} alt="Vygenerované menu pro tisk" width={800} height={1128} className="rounded-lg border shadow-md w-full h-auto" />
                 </CardContent>
-                <CardFooter>
-                  <Button onClick={handleDownload}>
-                    <Download className="mr-2 h-4 w-4" /> Stáhnout obrázek
-                  </Button>
-                </CardFooter>
               </Card>
             );
           }

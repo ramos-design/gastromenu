@@ -56,7 +56,7 @@ export default function HistoriePage() {
         return <Badge variant="secondary" className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-0 gap-1"><Globe className="w-3 h-3" /> Web</Badge>;
       case 'pdf':
       default:
-        return <Badge variant="secondary" className="bg-slate-100 text-slate-700 hover:bg-slate-100 border-0 gap-1"><FileText className="w-3 h-3" /> PDF</Badge>;
+        return null;
     }
   };
 
@@ -83,7 +83,12 @@ export default function HistoriePage() {
                     <div className="flex-1 flex items-center justify-between mr-4">
                       <div className="text-left">
                         <div className="flex items-center gap-2 mb-1">
-                          <h3 className="text-xl font-semibold leading-none tracking-tight">Menu ze dne: {formatDate(item.date)}</h3>
+                          <h3 className="text-xl font-semibold leading-none tracking-tight">
+                            {item.variant === 'breakfast' ? 'Snídaně' :
+                              item.variant === 'standard' ? 'Jídelní menu' :
+                                item.variant === 'weekly' ? 'Týdenní menu' :
+                                  'Menu'} ze dne: {formatDate(item.date)}
+                          </h3>
                           {getExportTypeBadge(item.exportType)}
                         </div>
                         <p className="text-sm text-muted-foreground">Počet jídel: {item.dishes.length}</p>

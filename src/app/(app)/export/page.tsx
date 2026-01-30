@@ -398,17 +398,26 @@ function ExportPageContent() {
                 <Button
                   variant="outline"
                   onClick={() => handleGenerate('pdf')}
-                  disabled={output.loading || !currentMenu?.length}
-                  className="h-auto py-6 px-4 flex items-center justify-start gap-4 hover:bg-muted/50 transition-all border-2 w-full text-left"
+                  disabled={output.loading || !currentMenu?.length || activeTab !== 'weekly'}
+                  className="h-auto py-6 px-4 flex items-center justify-between gap-4 hover:bg-muted/50 transition-all border-2 w-full text-left bg-card"
                 >
-                  {output.loading && output.type === 'pdf' ? (
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  ) : (
-                    <FileText className="w-8 h-8 text-primary" />
-                  )}
-                  <div className="space-y-1">
-                    <span className="font-bold block">Tiskové menu</span>
-                    <span className="text-xs text-muted-foreground font-normal block">Vygenerovat menu k tisku</span>
+                  <div className="flex items-center gap-4">
+                    {output.loading && output.type === 'pdf' ? (
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    ) : (
+                      <FileText className={`w-8 h-8 ${activeTab === 'weekly' ? 'text-primary' : 'text-muted-foreground'}`} />
+                    )}
+                    <div className="space-y-1">
+                      <span className="font-bold block flex items-center gap-2">
+                        Tiskové menu
+                        {activeTab !== 'weekly' && (
+                          <Badge variant="secondary" className="text-xs bg-muted text-muted-foreground">Již brzy</Badge>
+                        )}
+                      </span>
+                      <span className="text-xs text-muted-foreground font-normal block">
+                        {activeTab === 'weekly' ? 'Vygenerovat menu k tisku' : 'Zatím dostupné jen pro Týdenní menu'}
+                      </span>
+                    </div>
                   </div>
                 </Button>
 

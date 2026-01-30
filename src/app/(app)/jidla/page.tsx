@@ -96,7 +96,7 @@ function JidlaPageContent() {
         const query = searchQuery.toLowerCase();
         return (
           dish.title_cz.toLowerCase().includes(query) ||
-          dish.title_en.toLowerCase().includes(query)
+          (dish.title_en || '').toLowerCase().includes(query)
         );
       });
   }, [dishes, filter, searchQuery]);
@@ -194,6 +194,7 @@ function JidlaPageContent() {
             <ToggleGroupItem value="vše">Vše</ToggleGroupItem>
             <ToggleGroupItem value="Polévka">Polévky</ToggleGroupItem>
             <ToggleGroupItem value="Hlavní jídlo">Hlavní jídla</ToggleGroupItem>
+            <ToggleGroupItem value="Snídaně">Snídaně</ToggleGroupItem>
           </ToggleGroup>
         </div>
 

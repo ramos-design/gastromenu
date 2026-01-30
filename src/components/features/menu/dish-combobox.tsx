@@ -87,9 +87,9 @@ export function DishCombobox({
                                             value === dish.id ? "opacity-100" : "opacity-0"
                                         )}
                                     />
-                                    <div className="flex flex-col">
-                                        <span className="font-medium text-gray-900">{dish.title_cz}</span>
-                                        <span className="text-xs text-muted-foreground">{dish.price} Kč</span>
+                                    <div className="flex flex-col gap-0.5">
+                                        <span className="text-black font-semibold text-sm">{dish.title_cz}</span>
+                                        <span className="text-xs text-gray-500 font-medium">{dish.price} Kč</span>
                                     </div>
                                 </CommandItem>
                             ))}

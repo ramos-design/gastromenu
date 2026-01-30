@@ -88,8 +88,8 @@ export function DishCombobox({
                                         )}
                                     />
                                     <div className="flex flex-col gap-0.5">
-                                        <span className="text-black font-semibold text-sm">{dish.title_cz}</span>
-                                        <span className="text-xs text-gray-500 font-medium">{dish.price} Kč</span>
+                                        <span className="text-black text-sm">{dish.title_cz}</span>
+                                        <span className="text-xs text-gray-500">{dish.price} Kč</span>
                                     </div>
                                 </CommandItem>
                             ))}

@@ -59,7 +59,7 @@ export function DishCombobox({
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[--radix-popover-trigger-width] p-0 pointer-events-auto" align="start">
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0 pointer-events-auto z-[9999]" align="start">
                 <Command>
                     <CommandInput placeholder="Hledat jídlo..." />
                     <CommandList>
@@ -73,7 +73,13 @@ export function DishCombobox({
                                         onChange(dish.id);
                                         setOpen(false);
                                     }}
-                                    className="cursor-pointer"
+                                    onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        onChange(dish.id);
+                                        setOpen(false);
+                                    }}
+                                    className="cursor-pointer !pointer-events-auto"
                                 >
                                     <Check
                                         className={cn(
@@ -82,7 +88,7 @@ export function DishCombobox({
                                         )}
                                     />
                                     <div className="flex flex-col">
-                                        <span>{dish.title_cz}</span>
+                                        <span className="font-medium text-gray-900">{dish.title_cz}</span>
                                         <span className="text-xs text-muted-foreground">{dish.price} Kč</span>
                                     </div>
                                 </CommandItem>

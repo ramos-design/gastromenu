@@ -63,21 +63,19 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Action Shortcuts (Optional, reusing space if needed, otherwise kept simple) */}
-        <Card className="glass-card lg:col-span-1 flex flex-col justify-center items-center p-6 space-y-4">
-          <Button asChild className="h-24 w-24 rounded-xl flex flex-col gap-2" variant="default">
-            <Link href="/sestav-menu" className="!flex-col !items-center !justify-center">
-              <ListPlus className="h-8 w-8 !mr-0" />
-              <span>Sestavit</span>
-            </Link>
-          </Button>
+        {/* Action Shortcuts */}
+        <Card className="glass-card lg:col-span-1 p-0 aspect-square overflow-hidden hover:scale-[1.02] transition-transform">
+          <Link href="/sestav-menu" className="flex flex-col items-center justify-center w-full h-full bg-primary text-primary-foreground hover:bg-primary/90 p-6">
+            <ListPlus className="h-12 w-12 mb-4" />
+            <span className="text-xl font-bold text-center">Sestavit menu</span>
+          </Link>
         </Card>
 
-        {/* Spacers or other stats could go here, currently using 2 cols for "Last Export" */}
+        {/* Spacers to fill grid if needed, currently empty */}
       </div>
 
       <h2 className="text-xl font-semibold mt-8">Poslední aktivity</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
 
         {/* Last PDF Export */}
         <Card className="glass-card md:col-span-1 border-primary/20 bg-primary/5">

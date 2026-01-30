@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { DishCombobox } from '@/components/features/menu/dish-combobox';
 import type { MenuVariant } from '@/lib/types';
 
 type MenuFormProps = {
@@ -119,14 +120,12 @@ function MenuForm({ variant, soupsCount, mainsCount, mainsCategory = 'Hlavní j�
                   render={({ field }) => (
                     <div className="space-y-2">
                       <Label>Polévka {i + 1}</Label>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <SelectTrigger><SelectValue placeholder="Vyberte polévku" /></SelectTrigger>
-                        <SelectContent>
-                          {availableSoups.map(soup => (
-                            <SelectItem key={soup.id} value={soup.id}>{soup.title_cz}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <DishCombobox
+                        value={field.value}
+                        onChange={field.onChange}
+                        options={availableSoups}
+                        placeholder="Vyberte polévku"
+                      />
                     </div>
                   )}
                 />
@@ -152,14 +151,12 @@ function MenuForm({ variant, soupsCount, mainsCount, mainsCategory = 'Hlavní j�
                   render={({ field }) => (
                     <div className="space-y-2">
                       <Label>{mainsCategory === 'Snídaně' ? `Snídaně ${i + 1}` : `Hlavní jídlo ${i + 1}`}</Label>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <SelectTrigger><SelectValue placeholder={mainsCategory === 'Snídaně' ? "Vyberte snídani" : "Vyberte hlavní jídlo"} /></SelectTrigger>
-                        <SelectContent>
-                          {availableMains.map(dish => (
-                            <SelectItem key={dish.id} value={dish.id}>{dish.title_cz}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <DishCombobox
+                        value={field.value}
+                        onChange={field.onChange}
+                        options={availableMains}
+                        placeholder={mainsCategory === 'Snídaně' ? "Vyberte snídani" : "Vyberte hlavní jídlo"}
+                      />
                     </div>
                   )}
                 />

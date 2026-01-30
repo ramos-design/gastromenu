@@ -12,39 +12,79 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import type { MenuVariant } from '@/lib/types';
 
-type MenuFormValues = {
-  soup1?: string;
-  soup2?: string;
-  main1?: string;
-  main2?: string;
-  main3?: string;
-  main4?: string;
-  main5?: string;
-  main6?: string;
+type MenuFormProps = {
+  variant: MenuVariant;
+  soupsCount: number;
+  mainsCount: number;
+  mainsCategory?: string; // 'Hlavní jídlo' or 'Snídaně'
 };
 
-export default function SestavMenuPage() {
-  const { dishes, setCurrentMenu } = useGastro();
+function MenuForm({ variant, soupsCount, mainsCount, mainsCategory = 'Hlavní jídlo' }: MenuFormProps) {
+  const { dishes, saveMenu, menus } = useGastro();
   const { toast } = useToast();
-  const { control, handleSubmit } = useForm<MenuFormValues>();
   const router = useRouter();
 
-  const { soups, mainDishes } = useMemo(() => {
+  // Load saved values if available
+  const defaultValues = useMemo(() => {
+    const saved = menus[variant] || [];
+    const values: Record<string, string> = {};
+
+    // Attempt to map back to form fields roughly
+    const savedSoups = saved.filter(d => d.category === 'Polévka');
+    const savedMains = saved.filter(d => d.category === mainsCategory);
+
+    savedSoups.forEach((d, i) => { if (i < soupsCount) values[`soup${i + 1}`] = d.id; });
+    savedMains.forEach((d, i) => { if (i < mainsCount) values[`main${i + 1}`] = d.id; });
+
+    return values;
+  }, [menus, variant, soupsCount, mainsCount, mainsCategory]);
+
+  const { control, handleSubmit } = useForm({
+    defaultValues
+  });
+
+  const { availableSoups, availableMains } = useMemo(() => {
     return {
-      soups: dishes.filter(d => d.category === 'Polévka'),
-      mainDishes: dishes.filter(d => d.category === 'Hlavní jídlo'),
+      availableSoups: dishes.filter(d => d.category === 'Polévka'),
+      availableMains: dishes.filter(d => d.category === mainsCategory),
     };
-  }, [dishes]);
+  }, [dishes, mainsCategory]);
 
-  const onSubmit = (data: MenuFormValues) => {
-    const selectedIds = Object.values(data).filter(Boolean);
-    const selectedDishes = dishes.filter(d => selectedIds.includes(d.id));
+  const onSubmit = (data: any) => {
+    const selectedIds = Object.values(data).filter(Boolean) as string[];
+    // Maintain order by filtering based on form keys sequence is tricky, 
+    // but typically we just pull the IDs. 
+    // To respect the slots (soup1, soup2...), we should map them explicitly if order matters.
+    // For now, filtering from 'dishes' by ID is safe but loses slot order if user picked specifically.
+    // Better: Map ids to objects.
 
-    if (selectedDishes.length === 0) {
+    // We want to reconstruct the array: Soups first, then Mains.
+    const orderedDishes: any[] = [];
+
+    // Soups
+    for (let i = 1; i <= soupsCount; i++) {
+      const id = data[`soup${i}`];
+      if (id) {
+        const dish = dishes.find(d => d.id === id);
+        if (dish) orderedDishes.push(dish);
+      }
+    }
+    // Mains
+    for (let i = 1; i <= mainsCount; i++) {
+      const id = data[`main${i}`];
+      if (id) {
+        const dish = dishes.find(d => d.id === id);
+        if (dish) orderedDishes.push(dish);
+      }
+    }
+
+    if (orderedDishes.length === 0) {
       toast({
         variant: "destructive",
         title: "Nevybrali jste žádná jídla",
@@ -53,38 +93,35 @@ export default function SestavMenuPage() {
       return;
     }
 
-    setCurrentMenu(selectedDishes);
-    toast({ title: "Menu uloženo", description: "Nyní můžete přejít k exportu." });
-    router.push('/export');
+    saveMenu(variant, orderedDishes);
+    toast({ title: "Menu uloženo", description: "Vaše menu bylo uloženo. Nyní můžete přejít k exportu." });
+
+    // Navigate with tab query param to keep context
+    router.push(`/export?tab=${variant}`);
   };
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Sestavit týdenní menu</h1>
-        <p className="text-muted-foreground">Vyberte jídla pro sestavení týdenního menu.</p>
-      </div>
-
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-        {/* Soups Section */}
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 mt-6">
+      {/* Soups Section */}
+      {soupsCount > 0 && (
         <Card className="glass-card">
           <CardHeader>
             <CardTitle>Polévky</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {[1, 2].map(i => (
+              {Array.from({ length: soupsCount }).map((_, i) => (
                 <Controller
-                  key={`soup${i}`}
-                  name={`soup${i}` as keyof MenuFormValues}
+                  key={`soup${i + 1}`}
+                  name={`soup${i + 1}`}
                   control={control}
                   render={({ field }) => (
                     <div className="space-y-2">
-                      <Label>Polévka {i}</Label>
+                      <Label>Polévka {i + 1}</Label>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <SelectTrigger><SelectValue placeholder="Vyberte polévku" /></SelectTrigger>
                         <SelectContent>
-                          {soups.map(soup => (
+                          {availableSoups.map(soup => (
                             <SelectItem key={soup.id} value={soup.id}>{soup.title_cz}</SelectItem>
                           ))}
                         </SelectContent>
@@ -96,26 +133,28 @@ export default function SestavMenuPage() {
             </div>
           </CardContent>
         </Card>
+      )}
 
-        {/* Main Dishes Section */}
+      {/* Main Dishes Section */}
+      {mainsCount > 0 && (
         <Card className="glass-card">
           <CardHeader>
-            <CardTitle>Hlavní jídla</CardTitle>
+            <CardTitle>{mainsCategory === 'Snídaně' ? 'Snídaňová nabídka' : 'Hlavní jídla'}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {[1, 2, 3, 4, 5, 6].map(i => (
+              {Array.from({ length: mainsCount }).map((_, i) => (
                 <Controller
-                  key={`main${i}`}
-                  name={`main${i}` as keyof MenuFormValues}
+                  key={`main${i + 1}`}
+                  name={`main${i + 1}`}
                   control={control}
                   render={({ field }) => (
                     <div className="space-y-2">
-                      <Label>Hlavní jídlo {i}</Label>
+                      <Label>{mainsCategory === 'Snídaně' ? `Snídaně ${i + 1}` : `Hlavní jídlo ${i + 1}`}</Label>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <SelectTrigger><SelectValue placeholder="Vyberte hlavní jídlo" /></SelectTrigger>
+                        <SelectTrigger><SelectValue placeholder={mainsCategory === 'Snídaně' ? "Vyberte snídani" : "Vyberte hlavní jídlo"} /></SelectTrigger>
                         <SelectContent>
-                          {mainDishes.map(dish => (
+                          {availableMains.map(dish => (
                             <SelectItem key={dish.id} value={dish.id}>{dish.title_cz}</SelectItem>
                           ))}
                         </SelectContent>
@@ -127,11 +166,51 @@ export default function SestavMenuPage() {
             </div>
           </CardContent>
         </Card>
+      )}
 
-        <div className="flex justify-end">
-          <Button type="submit" size="lg">Uložit a přejít na export</Button>
-        </div>
-      </form>
+      <div className="flex justify-end">
+        <Button type="submit" size="lg">Uložit a přejít na export</Button>
+      </div>
+    </form>
+  );
+}
+
+export default function SestavMenuPage() {
+  return (
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Sestavit menu</h1>
+        <p className="text-muted-foreground">Vyberte variantu menu, kterou chcete sestavit.</p>
+      </div>
+
+      <Tabs defaultValue="weekly" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 mb-8">
+          <TabsTrigger value="breakfast">Snídaně</TabsTrigger>
+          <TabsTrigger value="standard">Jídelní menu</TabsTrigger>
+          <TabsTrigger value="weekly">Týdenní menu</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="breakfast">
+          <div className="space-y-4">
+            <CardDescription>Sestavte snídaňovou nabídku. Můžete vybrat až 4 snídaňová jídla.</CardDescription>
+            <MenuForm variant="breakfast" soupsCount={0} mainsCount={4} mainsCategory="Snídaně" />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="standard">
+          <div className="space-y-4">
+            <CardDescription>Sestavte klasické jídelní menu (2 polévky + 4 hlavní jídla).</CardDescription>
+            <MenuForm variant="standard" soupsCount={2} mainsCount={4} />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="weekly">
+          <div className="space-y-4">
+            <CardDescription>Sestavte týdenní menu (2 polévky + 6 hlavních jídel).</CardDescription>
+            <MenuForm variant="weekly" soupsCount={2} mainsCount={6} />
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

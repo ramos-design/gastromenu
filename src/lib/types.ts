@@ -5,7 +5,7 @@ export type Allergen = {
   number: number;
 };
 
-export type DishType = 'Polévka' | 'Hlavní jídlo';
+export type DishType = 'Polévka' | 'Hlavní jídlo' | 'Snídaně';
 
 export type Dish = {
   id: string;
@@ -25,3 +25,5 @@ export type MenuHistoryItem = {
   dishes: Dish[];
   exportType?: 'pdf' | 'post' | 'web';
 };
+
+export type MenuVariant = 'breakfast' | 'standard' | 'weekly';

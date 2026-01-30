@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useSearchParams } from 'next/navigation';
 import { useGastro } from '@/contexts/GastroContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Download, FileText, Globe, Image as ImageIcon, Pilcrow, Loader2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -22,6 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import type { MenuVariant } from '@/lib/types';
 
 type MenuOutput = {
   type: 'pdf' | 'post' | 'web' | null;
@@ -30,8 +33,12 @@ type MenuOutput = {
 };
 
 export default function ExportPage() {
-  const { currentMenu, addMenuToHistory, allergens } = useGastro();
+  const { menus, addMenuToHistory, allergens } = useGastro();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const initialTab = (searchParams.get('tab') as MenuVariant) || 'weekly';
+
+  const [activeTab, setActiveTab] = useState<MenuVariant>(initialTab);
   const [lang, setLang] = useState<'cz' | 'en'>('cz');
   const [output, setOutput] = useState<MenuOutput>({ type: null, loading: false, success: false });
   const [generatedPdfImage, setGeneratedPdfImage] = useState<string | null>(null);
@@ -42,9 +49,19 @@ export default function ExportPage() {
     setHasMounted(true);
   }, []);
 
+  // Reset output when switching tabs
+  useEffect(() => {
+    setIsPreviewVisible(true);
+    setOutput({ type: null, loading: false, success: false });
+    setGeneratedPdfImage(null);
+  }, [activeTab]);
+
+  const currentMenu = menus[activeTab] || [];
+
   const sortedMenu = useMemo(() => {
     if (!currentMenu) return [];
     return [...currentMenu].sort((a, b) => {
+      // Polévka first
       if (a.category === 'Polévka' && b.category !== 'Polévka') return -1;
       if (a.category !== 'Polévka' && b.category === 'Polévka') return 1;
       return 0;
@@ -67,9 +84,13 @@ export default function ExportPage() {
         const localProxyUrl = '/api/export-menu';
         const params = new URLSearchParams();
 
+        // Pass menu type if needed, or stick to structure
+        params.append('menuType', activeTab);
+
         // Categorize dishes
         const menuSoups = sortedMenu.filter(d => d.category === 'Polévka');
-        const menuMains = sortedMenu.filter(d => d.category === 'Hlavní jídlo');
+        // Treat Breakfast items as mains for the prompt structure unless we change backend
+        const menuMains = sortedMenu.filter(d => d.category === 'Hlavní jídlo' || d.category === 'Snídaně');
 
         // Map soups
         menuSoups.forEach((dish, index) => {
@@ -204,6 +225,11 @@ export default function ExportPage() {
                 <CardContent>
                   <Image src={generatedPdfImage} alt="Vygenerované menu pro tisk" width={800} height={1128} className="rounded-lg border shadow-md w-full h-auto" />
                 </CardContent>
+                <CardFooter>
+                  <Button onClick={handleDownload}>
+                    <Download className="mr-2 h-4 w-4" /> Stáhnout obrázek
+                  </Button>
+                </CardFooter>
               </Card>
             );
           }
@@ -262,19 +288,6 @@ export default function ExportPage() {
     );
   }
 
-  if (!currentMenu || currentMenu.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-center">
-        <Pilcrow className="w-16 h-16 text-muted-foreground mb-4" />
-        <h2 className="text-2xl font-semibold mb-2">Žádné menu k exportu</h2>
-        <p className="text-muted-foreground mb-4">Nejprve prosím sestavte menu.</p>
-        <Button asChild>
-          <Link href="/sestav-menu">Sestavit menu</Link>
-        </Button>
-      </div>
-    );
-  }
-
   const getAllergenNumber = (id: string) => {
     const allergen = allergens.find(a => a.id === id);
     return allergen ? allergen.number : id;
@@ -287,116 +300,135 @@ export default function ExportPage() {
         <p className="text-muted-foreground">Zkontrolujte sestavené menu a vygenerujte výstupy.</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-        {/* Left Column - Content (Preview or Result) */}
-        <div className="lg:col-span-2 space-y-6">
-          {isPreviewVisible ? (
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as MenuVariant)} className="w-full">
+        <TabsList className="grid w-full grid-cols-3 mb-8">
+          <TabsTrigger value="breakfast">Snídaně</TabsTrigger>
+          <TabsTrigger value="standard">Jídelní menu</TabsTrigger>
+          <TabsTrigger value="weekly">Týdenní menu</TabsTrigger>
+        </TabsList>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+          {/* Left Column - Content (Preview or Result) */}
+          <div className="lg:col-span-2 space-y-6">
+            {!currentMenu || currentMenu.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center border rounded-lg bg-card/50">
+                <Pilcrow className="w-12 h-12 text-muted-foreground mb-4" />
+                <h2 className="text-xl font-semibold mb-2">Žádné menu pro tuto variantu</h2>
+                <p className="text-muted-foreground mb-4">Sestavte nejprve menu v sekci Sestavit menu.</p>
+                <Button asChild variant="secondary">
+                  <Link href={`/sestav-menu?tab=${activeTab}`}>Sestavit menu</Link>
+                </Button>
+              </div>
+            ) : isPreviewVisible ? (
+              <Card className="glass-card">
+                <CardHeader>
+                  <div className="flex justify-between items-center">
+                    <CardTitle>Náhled menu ({activeTab === 'breakfast' ? 'Snídaně' : activeTab === 'standard' ? 'Jídelní menu' : 'Týdenní menu'})</CardTitle>
+                    <div className="flex items-center space-x-2">
+                      <Label htmlFor="lang-switch">CZ</Label>
+                      <Switch id="lang-switch" checked={lang === 'en'} onCheckedChange={(checked) => setLang(checked ? 'en' : 'cz')} />
+                      <Label htmlFor="lang-switch">EN</Label>
+                    </div>
+                  </div>
+                  <CardDescription>Zkontrolujte sestavené menu.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[70%]">Název jídla</TableHead>
+                        <TableHead className="text-right">Cena</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sortedMenu.map((dish) => (
+                        <TableRow key={dish.id}>
+                          <TableCell>
+                            <div className="font-medium">
+                              {lang === 'cz' ? dish.title_cz : dish.title_en}
+                            </div>
+                            <div className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
+                              <span className="text-xs">Alergeny:</span>
+                              <div className="flex gap-1">
+                                {dish.allergens.map(id => (
+                                  <Badge key={id} variant="secondary" className="px-1 py-0 text-[10px]">
+                                    {getAllergenNumber(id)}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right align-top pt-4 font-bold">
+                            {dish.price} Kč
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            ) : (
+              renderOutput()
+            )}
+          </div>
+
+          {/* Right Column - Actions */}
+          <div className="space-y-6">
             <Card className="glass-card">
               <CardHeader>
-                <div className="flex justify-between items-center">
-                  <CardTitle>Náhled menu</CardTitle>
-                  <div className="flex items-center space-x-2">
-                    <Label htmlFor="lang-switch">CZ</Label>
-                    <Switch id="lang-switch" checked={lang === 'en'} onCheckedChange={(checked) => setLang(checked ? 'en' : 'cz')} />
-                    <Label htmlFor="lang-switch">EN</Label>
-                  </div>
-                </div>
-                <CardDescription>Zkontrolujte sestavené menu.</CardDescription>
+                <CardTitle>Generovat výstupy</CardTitle>
+                <CardDescription>Vytvořte z menu podklady</CardDescription>
               </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[70%]">Název jídla</TableHead>
-                      <TableHead className="text-right">Cena</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {sortedMenu.map((dish) => (
-                      <TableRow key={dish.id}>
-                        <TableCell>
-                          <div className="font-medium">
-                            {lang === 'cz' ? dish.title_cz : dish.title_en}
-                          </div>
-                          <div className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
-                            <span className="text-xs">Alergeny:</span>
-                            <div className="flex gap-1">
-                              {dish.allergens.map(id => (
-                                <Badge key={id} variant="secondary" className="px-1 py-0 text-[10px]">
-                                  {getAllergenNumber(id)}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right align-top pt-4 font-bold">
-                          {dish.price} Kč
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+              <CardContent className="flex flex-col gap-4">
+                <Button
+                  variant="outline"
+                  onClick={() => handleGenerate('pdf')}
+                  disabled={output.loading || !currentMenu?.length}
+                  className="h-auto py-6 px-4 flex items-center justify-start gap-4 hover:bg-muted/50 transition-all border-2 w-full text-left"
+                >
+                  {output.loading && output.type === 'pdf' ? (
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  ) : (
+                    <FileText className="w-8 h-8 text-primary" />
+                  )}
+                  <div className="space-y-1">
+                    <span className="font-bold block">Tiskové menu</span>
+                    <span className="text-xs text-muted-foreground font-normal block">Vygenerovat menu k tisku</span>
+                  </div>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={() => handleGenerate('post')}
+                  disabled={output.loading || !currentMenu?.length}
+                  className="h-auto py-6 px-4 flex items-center justify-start gap-4 hover:bg-muted/50 transition-all border-2 w-full text-left"
+                >
+                  <ImageIcon className="w-8 h-8 text-pink-500" />
+                  <div className="space-y-1">
+                    <span className="font-bold block">Sociální sítě</span>
+                    <span className="text-xs text-muted-foreground font-normal block">Příspěvky pro Instagram/FB</span>
+                  </div>
+                </Button>
+
+                {activeTab === 'weekly' && (
+                  <Button
+                    variant="outline"
+                    onClick={() => handleGenerate('web')}
+                    disabled={output.loading || !currentMenu?.length}
+                    className="h-auto py-6 px-4 flex items-center justify-start gap-4 hover:bg-muted/50 transition-all border-2 w-full text-left"
+                  >
+                    <Globe className="w-8 h-8 text-blue-500" />
+                    <div className="space-y-1">
+                      <span className="font-bold block">Webové stránky</span>
+                      <span className="text-xs text-muted-foreground font-normal block">Propsat na web restaurace</span>
+                    </div>
+                  </Button>
+                )}
               </CardContent>
             </Card>
-          ) : (
-            renderOutput()
-          )}
+          </div>
         </div>
-
-        {/* Right Column - Actions */}
-        <div className="space-y-6">
-          <Card className="glass-card">
-            <CardHeader>
-              <CardTitle>Generovat výstupy</CardTitle>
-              <CardDescription>Vytvořte z menu podklady</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-              <Button
-                variant="outline"
-                onClick={() => handleGenerate('pdf')}
-                disabled={output.loading}
-                className="h-auto py-6 px-4 flex items-center justify-start gap-4 hover:bg-muted/50 transition-all border-2 w-full text-left"
-              >
-                {output.loading && output.type === 'pdf' ? (
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                ) : (
-                  <FileText className="w-8 h-8 text-primary" />
-                )}
-                <div className="space-y-1">
-                  <span className="font-bold block">Tiskové menu</span>
-                  <span className="text-xs text-muted-foreground font-normal block">Vygenerovat menu k tisku</span>
-                </div>
-              </Button>
-
-              <Button
-                variant="outline"
-                onClick={() => handleGenerate('post')}
-                disabled={output.loading}
-                className="h-auto py-6 px-4 flex items-center justify-start gap-4 hover:bg-muted/50 transition-all border-2 w-full text-left"
-              >
-                <ImageIcon className="w-8 h-8 text-pink-500" />
-                <div className="space-y-1">
-                  <span className="font-bold block">Sociální sítě</span>
-                  <span className="text-xs text-muted-foreground font-normal block">Příspěvky pro Instagram/FB</span>
-                </div>
-              </Button>
-
-              <Button
-                variant="outline"
-                onClick={() => handleGenerate('web')}
-                disabled={output.loading}
-                className="h-auto py-6 px-4 flex items-center justify-start gap-4 hover:bg-muted/50 transition-all border-2 w-full text-left"
-              >
-                <Globe className="w-8 h-8 text-blue-500" />
-                <div className="space-y-1">
-                  <span className="font-bold block">Webové stránky</span>
-                  <span className="text-xs text-muted-foreground font-normal block">Propsat na web restaurace</span>
-                </div>
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      </Tabs>
     </div>
   );
 }

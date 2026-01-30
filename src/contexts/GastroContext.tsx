@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, ReactNode, useMemo, useEffect, useState, useCallback } from 'react';
-import type { Allergen, Dish, MenuHistoryItem } from '@/lib/types';
+import type { Allergen, Dish, MenuHistoryItem, MenuVariant } from '@/lib/types';
 import useLocalStorage from '@/hooks/use-local-storage';
 import { initialAllergens as defaultAllergens } from '@/lib/data';
 import { createClient } from '@/lib/supabase/client';
@@ -25,18 +25,18 @@ const initialAllergensWithIds: Allergen[] = defaultAllergens.map(a => ({ ...a, i
 interface GastroContextType {
   allergens: Allergen[];
   dishes: Dish[];
-  currentMenu: Dish[] | null;
+  menus: Record<MenuVariant, Dish[]>;
+  saveMenu: (variant: MenuVariant, dishes: Dish[]) => void;
   menuHistory: MenuHistoryItem[];
   isLoading: boolean;
-  setCurrentMenu: (dishes: Dish[] | null) => void;
   addDish: (dish: Omit<Dish, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => Promise<void>;
   updateDish: (dish: Dish) => Promise<void>;
   deleteDish: (id: string) => Promise<void>;
   addAllergen: (allergen: Omit<Allergen, 'id'>) => void;
   updateAllergen: (allergen: Allergen) => void;
   deleteAllergen: (id: string) => void;
-  addMenuToHistory: (dishes: Dish[], exportType?: 'pdf' | 'post' | 'web') => void;
-  deleteMenuFromHistory: (id: string) => void;
+  addMenuToHistory: (dishes: Dish[], exportType?: 'pdf' | 'post' | 'web') => Promise<void>;
+  deleteMenuFromHistory: (id: string) => Promise<void>;
   isAllergenInUse: (id: string) => boolean;
 }
 
@@ -67,8 +67,24 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
 
   const [isLoading, setIsLoading] = useState(true);
 
-  // Still use local storage for currentMenu (draft state)
-  const [currentMenu, setCurrentMenu] = useLocalStorage<Dish[] | null>(`${storagePrefix}currentMenu`, null);
+  // Still use local storage for currentMenu (draft state) - NOW SPLIT
+  const [currentBreakfast, setCurrentBreakfast] = useLocalStorage<Dish[]>(`${storagePrefix}menu_breakfast`, []);
+  const [currentStandard, setCurrentStandard] = useLocalStorage<Dish[]>(`${storagePrefix}menu_standard`, []);
+  const [currentWeekly, setCurrentWeekly] = useLocalStorage<Dish[]>(`${storagePrefix}menu_weekly`, []);
+
+  const saveMenu = useCallback((variant: MenuVariant, dishes: Dish[]) => {
+    switch (variant) {
+      case 'breakfast':
+        setCurrentBreakfast(dishes);
+        break;
+      case 'standard':
+        setCurrentStandard(dishes);
+        break;
+      case 'weekly':
+        setCurrentWeekly(dishes);
+        break;
+    }
+  }, [setCurrentBreakfast, setCurrentStandard, setCurrentWeekly]);
 
   const sortedAllergens = useMemo(() => {
     return [...allergens].sort((a, b) => a.number - b.number);
@@ -304,10 +320,14 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
   const value = useMemo(() => ({
     allergens: sortedAllergens,
     dishes,
-    currentMenu,
+    menus: {
+      breakfast: currentBreakfast,
+      standard: currentStandard,
+      weekly: currentWeekly,
+    },
     menuHistory: sortedMenuHistory,
     isLoading,
-    setCurrentMenu,
+    saveMenu,
     addDish,
     updateDish,
     deleteDish,
@@ -320,10 +340,12 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
   }), [
     sortedAllergens,
     dishes,
-    currentMenu,
+    currentBreakfast,
+    currentStandard,
+    currentWeekly,
     sortedMenuHistory,
     isLoading,
-    setCurrentMenu,
+    saveMenu,
     addDish,
     updateDish,
     deleteDish,

@@ -175,6 +175,7 @@ export function DishFormSheet({ isOpen, onClose, dish }: DishFormSheetProps) {
                         <SelectContent>
                           <SelectItem value="Polévka">Polévka</SelectItem>
                           <SelectItem value="Hlavní jídlo">Hlavní jídlo</SelectItem>
+                          <SelectItem value="Snídaně">Snídaně</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />

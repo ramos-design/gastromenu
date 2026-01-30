@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
@@ -32,7 +32,7 @@ type MenuOutput = {
   success: boolean;
 };
 
-export default function ExportPage() {
+function ExportPageContent() {
   const { menus, addMenuToHistory, allergens } = useGastro();
   const { toast } = useToast();
   const searchParams = useSearchParams();
@@ -430,5 +430,18 @@ export default function ExportPage() {
         </div>
       </Tabs>
     </div>
+  );
+}
+
+export default function ExportPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center h-full text-center">
+        <Loader2 className="w-16 h-16 text-muted-foreground mb-4 animate-spin" />
+        <h2 className="text-2xl font-semibold mb-2">Načítání...</h2>
+      </div>
+    }>
+      <ExportPageContent />
+    </Suspense>
   );
 }

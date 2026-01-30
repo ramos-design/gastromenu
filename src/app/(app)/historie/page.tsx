@@ -6,7 +6,7 @@ import { useGastro } from '@/contexts/GastroContext';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { History, Trash2 } from 'lucide-react';
+import { History, Trash2, FileText, Image as ImageIcon, Globe } from 'lucide-react';
 import {
   Accordion,
   AccordionContent,
@@ -47,7 +47,19 @@ export default function HistoriePage() {
       setItemToDelete(null);
     }
   };
-  
+
+  const getExportTypeBadge = (type?: 'pdf' | 'post' | 'web') => {
+    switch (type) {
+      case 'post':
+        return <Badge variant="secondary" className="bg-pink-100 text-pink-700 hover:bg-pink-100 border-0 gap-1"><ImageIcon className="w-3 h-3" /> Social</Badge>;
+      case 'web':
+        return <Badge variant="secondary" className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-0 gap-1"><Globe className="w-3 h-3" /> Web</Badge>;
+      case 'pdf':
+      default:
+        return <Badge variant="secondary" className="bg-slate-100 text-slate-700 hover:bg-slate-100 border-0 gap-1"><FileText className="w-3 h-3" /> PDF</Badge>;
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -64,55 +76,61 @@ export default function HistoriePage() {
       ) : (
         <>
           <ScrollArea className="h-[calc(100vh-200px)]">
-              <Accordion type="single" collapsible className="space-y-4 pr-4">
-                  {menuHistory.map(item => (
-                  <AccordionItem value={item.id} key={item.id} className="glass-card border-b-0 rounded-xl overflow-hidden relative group">
-                      <AccordionTrigger className="p-6 hover:no-underline">
-                          <div className="flex-1 text-left">
-                              <h3 className="text-2xl font-semibold leading-none tracking-tight">Menu ze dne: {formatDate(item.date)}</h3>
-                              <p className="text-sm text-muted-foreground pt-1.5">Počet jídel: {item.dishes.length}</p>
-                          </div>
-                      </AccordionTrigger>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute top-1/2 -translate-y-1/2 right-16 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={(e) => handleDeleteClick(e, item)}
-                        >
-                        <Trash2 className="w-5 h-5" />
-                        <span className="sr-only">Smazat položku historie</span>
-                      </Button>
-                      <AccordionContent>
-                      <div className="px-6 pb-6 pt-0 space-y-2">
-                          {item.dishes.map(dish => (
-                          <div key={dish.id} className="p-3 border rounded-lg bg-background/50">
-                              <p className="font-semibold">{dish.name_cz}</p>
-                              <div className="flex justify-between text-sm mt-1">
-                              <span className="text-muted-foreground">Cena: {dish.price} Kč</span>
-                              <div className="flex items-center gap-1 flex-wrap justify-end">
-                                  <span className="text-muted-foreground">Alergeny:</span>
-                                  {dish.allergenIds.map(id => (
-                                  <Badge key={id} variant="secondary">{getAllergenNumber(id)}</Badge>
-                                  ))}
-                              </div>
-                              </div>
-                          </div>
-                          ))}
+            <Accordion type="single" collapsible className="space-y-4 pr-4">
+              {menuHistory.map(item => (
+                <AccordionItem value={item.id} key={item.id} className="glass-card border-b-0 rounded-xl overflow-hidden relative group">
+                  <AccordionTrigger className="p-6 hover:no-underline">
+                    <div className="flex-1 flex items-center justify-between mr-4">
+                      <div className="text-left">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="text-xl font-semibold leading-none tracking-tight">Menu ze dne: {formatDate(item.date)}</h3>
+                          {getExportTypeBadge(item.exportType)}
+                        </div>
+                        <p className="text-sm text-muted-foreground">Počet jídel: {item.dishes.length}</p>
                       </div>
-                      </AccordionContent>
-                  </AccordionItem>
-                  ))}
-              </Accordion>
+                    </div>
+                  </AccordionTrigger>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-6 right-16 text-muted-foreground hover:text-destructive z-10"
+                    onClick={(e) => handleDeleteClick(e, item)}
+                  >
+                    <Trash2 className="w-5 h-5" />
+                    <span className="sr-only">Smazat položku historie</span>
+                  </Button>
+                  <AccordionContent>
+                    <div className="px-6 pb-6 pt-0 space-y-2">
+                      {item.dishes.map(dish => (
+                        <div key={dish.id} className="p-3 border rounded-lg bg-background/50">
+                          <p className="font-semibold">{dish.title_cz}</p>
+                          <div className="flex justify-between text-sm mt-1">
+                            <span className="text-muted-foreground">Kategorie: {dish.category} | Cena: {dish.price} Kč</span>
+                            <div className="flex items-center gap-1 flex-wrap justify-end">
+                              <span className="text-muted-foreground">Alergeny:</span>
+                              {dish.allergens && dish.allergens.length > 0 ? dish.allergens.map(id => (
+                                <Badge key={id} variant="secondary" className="h-5 px-1">{getAllergenNumber(id)}</Badge>
+                              )) : <span className="text-muted-foreground italic text-xs">Bez alergenů</span>}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
           </ScrollArea>
           <ConfirmDialog
-              isOpen={!!itemToDelete}
-              onClose={() => setItemToDelete(null)}
-              onConfirm={confirmDeletion}
-              title="Opravdu smazat položku?"
-              description={`Tato akce je nevratná. Opravdu si přejete smazat toto menu ze dne ${itemToDelete ? formatDate(itemToDelete.date) : ''}?`}
+            isOpen={!!itemToDelete}
+            onClose={() => setItemToDelete(null)}
+            onConfirm={confirmDeletion}
+            title="Opravdu smazat položku?"
+            description={`Tato akce je nevratná. Opravdu si přejete smazat toto menu ze dne ${itemToDelete ? formatDate(itemToDelete.date) : ''}?`}
           />
         </>
       )}
     </div>
   );
 }
+

@@ -59,12 +59,16 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [allergens, setAllergens]);
 
-  const [menuHistory, setMenuHistory] = useLocalStorage<MenuHistoryItem[]>(`${storagePrefix}menuHistory`, []);
-  const [currentMenu, setCurrentMenu] = useLocalStorage<Dish[] | null>(`${storagePrefix}currentMenu`, null);
-
   // Dishes come from Supabase
   const [dishes, setDishes] = useState<Dish[]>([]);
+
+  // History also comes from Supabase now
+  const [menuHistory, setMenuHistory] = useState<MenuHistoryItem[]>([]);
+
   const [isLoading, setIsLoading] = useState(true);
+
+  // Still use local storage for currentMenu (draft state)
+  const [currentMenu, setCurrentMenu] = useLocalStorage<Dish[] | null>(`${storagePrefix}currentMenu`, null);
 
   const sortedAllergens = useMemo(() => {
     return [...allergens].sort((a, b) => a.number - b.number);
@@ -72,6 +76,7 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
 
   const sortedMenuHistory = useMemo(() => {
     if (!menuHistory) return [];
+    // Already sorted from DB usually, but safe to keep
     return [...menuHistory].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [menuHistory]);
 
@@ -91,7 +96,6 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
     if (error) {
       console.error('Error fetching dishes:', error);
     } else {
-      // Map database fields to Dish type
       const mappedDishes: Dish[] = (data || []).map(item => ({
         id: item.id,
         user_id: item.user_id,
@@ -105,6 +109,25 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
       }));
       setDishes(mappedDishes);
     }
+
+    // Fetch History
+    const { data: historyData, error: historyError } = await supabase
+      .from('menu_history')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (historyError) {
+      console.error('Error fetching history:', historyError);
+    } else if (historyData) {
+      const mappedHistory: MenuHistoryItem[] = historyData.map(item => ({
+        id: item.id,
+        date: item.created_at,
+        dishes: item.dishes as Dish[],
+        exportType: item.export_type
+      }));
+      setMenuHistory(mappedHistory);
+    }
+
     setIsLoading(false);
   }, [user, supabase]);
 
@@ -233,19 +256,50 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
     return dishes.some(dish => dish.allergens.includes(id));
   }, [dishes]);
 
-  const addMenuToHistory = useCallback((dishes: Dish[], exportType?: 'pdf' | 'post' | 'web') => {
+  const addMenuToHistory = useCallback(async (dishes: Dish[], exportType?: 'pdf' | 'post' | 'web') => {
+    if (!user) return;
+
+    const tempId = generateId();
     const newHistoryItem: MenuHistoryItem = {
-      id: generateId(),
+      id: tempId,
       date: new Date().toISOString(),
       dishes: dishes,
       exportType,
     };
-    setMenuHistory(prev => [newHistoryItem, ...(prev || [])]);
-  }, [setMenuHistory]);
 
-  const deleteMenuFromHistory = useCallback((id: string) => {
+    // Optimistic update
+    setMenuHistory(prev => [newHistoryItem, ...(prev || [])]);
+
+    const { data, error } = await supabase.from('menu_history').insert({
+      user_id: user.id,
+      dishes: dishes, // Supabase handles JSON serialization
+      export_type: exportType
+    }).select().single();
+
+    if (error) {
+      console.error('Error adding to history:', error);
+      // Rollback
+      setMenuHistory(prev => prev.filter(i => i.id !== tempId));
+    } else if (data) {
+      // Replace temp ID with real ID
+      setMenuHistory(prev => prev.map(i => i.id === tempId ? { ...i, id: data.id, date: data.created_at } : i));
+    }
+
+  }, [user, supabase]);
+
+  const deleteMenuFromHistory = useCallback(async (id: string) => {
+    if (!user) return;
+
+    // Optimistic
     setMenuHistory(prev => (prev || []).filter(item => item.id !== id));
-  }, [setMenuHistory]);
+
+    const { error } = await supabase.from('menu_history').delete().eq('id', id);
+
+    if (error) {
+      console.error('Error deleting history:', error);
+      fetchDishes(); // Rollback via refetch
+    }
+  }, [user, supabase, fetchDishes]);
 
   const value = useMemo(() => ({
     allergens: sortedAllergens,

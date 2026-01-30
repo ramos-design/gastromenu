@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
-import { CookingPot, Loader2 } from 'lucide-react';
+import Image from 'next/image';
+import { Loader2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -51,12 +52,18 @@ export default function LoginPage() {
         <div className="min-h-screen flex items-center justify-center p-4">
             <Card className="w-full max-w-md glass-card">
                 <CardHeader className="space-y-1 text-center">
-                    <div className="flex justify-center mb-4">
-                        <CookingPot className="h-12 w-12 text-primary" />
+                    <div className="flex justify-center mb-4 relative h-12 w-12 mx-auto">
+                        <Image
+                            src="/LOGO.png"
+                            alt="Gastro Menu Logo"
+                            fill
+                            className="object-contain"
+                            priority
+                        />
                     </div>
                     <CardTitle className="text-2xl font-bold">Přihlášení</CardTitle>
                     <CardDescription>
-                        Přihlaste se do svého účtu Gastro Menu
+                        Přihlas se do své menu administrace
                     </CardDescription>
                 </CardHeader>
                 <form onSubmit={handleSubmit(onSubmit)}>
@@ -98,12 +105,7 @@ export default function LoginPage() {
                             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Přihlásit se
                         </Button>
-                        <p className="text-sm text-center text-muted-foreground">
-                            Nemáte účet?{' '}
-                            <Link href="/register" className="text-primary hover:underline">
-                                Zaregistrujte se
-                            </Link>
-                        </p>
+
                     </CardFooter>
                 </form>
             </Card>

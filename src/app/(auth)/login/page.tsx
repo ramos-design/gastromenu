@@ -52,7 +52,7 @@ export default function LoginPage() {
         <div className="min-h-screen flex items-center justify-center p-4">
             <Card className="w-full max-w-md glass-card">
                 <CardHeader className="space-y-1 text-center">
-                    <div className="flex justify-center mb-4 relative h-12 w-12 mx-auto">
+                    <div className="flex justify-center mb-4 relative h-24 w-24 mx-auto">
                         <Image
                             src="/LOGO.png"
                             alt="Gastro Menu Logo"

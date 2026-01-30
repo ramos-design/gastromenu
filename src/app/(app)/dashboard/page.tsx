@@ -42,25 +42,26 @@ export default function DashboardPage() {
         <p className="text-muted-foreground">Přehled vaší administrace.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="flex flex-wrap gap-6">
         {/* Total Dishes Tile */}
-        <Card className="glass-card lg:col-span-1">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Celkový počet jídel</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-4">
+        <Card className="glass-card p-0 w-44 h-44 overflow-hidden shadow-lg rounded-2xl flex flex-col items-center justify-center bg-card/50">
+          <div className="flex flex-col items-center gap-2 p-4">
+            <span className="text-sm font-medium text-muted-foreground text-center uppercase tracking-wide">Celkem jídel</span>
+            <div className="flex items-center gap-3">
               <CookingPot className="h-8 w-8 text-primary" />
-              <div className="text-4xl font-bold">{totalDishes}</div>
+              <span className="text-5xl font-bold text-foreground">{totalDishes}</span>
             </div>
-            <div className="mt-4">
-              <Button asChild size="sm" variant="outline" className="w-full">
-                <Link href="/jidla?action=add">
-                  Přidat nové jídlo
-                </Link>
-              </Button>
+          </div>
+        </Card>
+
+        {/* Add New Dish Button */}
+        <Card className="glass-card p-0 w-44 h-44 overflow-hidden hover:scale-[1.05] transition-transform shadow-lg rounded-2xl border-0">
+          <Link href="/jidla?action=add" className="flex flex-col items-center justify-center w-full h-full bg-blue-600 text-white hover:bg-blue-700 p-4 gap-2">
+            <div className="rounded-full bg-white/20 p-2">
+              <ListPlus className="h-8 w-8 text-white" />
             </div>
-          </CardContent>
+            <span className="text-lg font-bold text-center leading-tight">Přidat<br />nové jídlo</span>
+          </Link>
         </Card>
 
         {/* Action Shortcuts */}

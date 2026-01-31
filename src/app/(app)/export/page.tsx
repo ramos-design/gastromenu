@@ -156,8 +156,69 @@ function ExportPageContent() {
         });
         setOutput({ type: type, loading: false, success: false });
       }
+    } else if (type === 'web') {
+      // Handle web export via API proxy
+      try {
+        const localProxyUrl = '/api/export-menu';
+        const params = new URLSearchParams();
+        params.append('menuType', activeTab);
+        params.append('target', 'web'); // Specify web target
+
+        // ... (dish mapping will be needed here as well, duplicate logic or refactor)
+        const menuSoups = sortedMenu.filter(d => d.category === 'Polévka');
+        const menuMains = sortedMenu.filter(d => d.category === 'Hlavní jídlo' || d.category === 'Snídaně');
+
+        menuSoups.forEach((dish, index) => {
+          const i = index + 1;
+          params.append(`soup${i}_cz`, dish.title_cz || '');
+          params.append(`soup${i}_en`, dish.title_en || '');
+          params.append(`soup${i}_price`, dish.price.toString());
+          const dishAllergenNumbers = dish.allergens.map(id => {
+            const allergen = allergens.find(a => a.id === id);
+            return allergen ? allergen.number : id;
+          }).join(', ');
+          params.append(`soup${i}_allergens`, dishAllergenNumbers);
+        });
+
+        menuMains.forEach((dish, index) => {
+          const i = index + 1;
+          params.append(`main${i}_cz`, dish.title_cz || '');
+          params.append(`main${i}_en`, dish.title_en || '');
+          params.append(`main${i}_price`, dish.price.toString());
+          const dishAllergenNumbers = dish.allergens.map(id => {
+            const allergen = allergens.find(a => a.id === id);
+            return allergen ? allergen.number : id;
+          }).join(', ');
+          params.append(`main${i}_allergens`, dishAllergenNumbers);
+        });
+
+        const finalUrl = `${localProxyUrl}?${params.toString()}`;
+
+        const response = await fetch(finalUrl, { method: 'GET' });
+        if (!response.ok) throw new Error(`Proxy error: ${response.statusText}`);
+
+        // Web webhook typically doesn't return an image we need to display, but we handle the response
+        await response.json();
+
+        setOutput({ type: type, loading: false, success: true });
+        onGenerationSuccess();
+        toast({
+          title: "Úspěšně exportováno",
+          description: "Menu bylo úspěšně odesláno na web.",
+        });
+
+      } catch (error) {
+        console.error("Failed to export to web:", error);
+        const message = error instanceof Error ? error.message : 'Neznámá chyba';
+        toast({
+          variant: "destructive",
+          title: "Chyba při exportu",
+          description: message,
+        });
+        setOutput({ type: type, loading: false, success: false });
+      }
     } else {
-      // Simulate other generation types
+      // Simulate other generation types (post)
       setTimeout(() => {
         setOutput({ type: type, loading: false, success: true });
         onGenerationSuccess();

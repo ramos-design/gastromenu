@@ -25,6 +25,12 @@ export async function GET(request: NextRequest) {
             const data = await response.json();
             // Handle n8n returning an array (common behavior)
             const responseData = Array.isArray(data) ? data[0] : data;
+
+            // For test webhook which doesn't return image, provide a placeholder
+            if (!responseData.imageUrl) {
+                responseData.imageUrl = "https://placehold.co/600x800?text=Test+Data+Sent";
+            }
+
             return NextResponse.json(responseData);
         } else if (contentType && contentType.includes('image/')) {
             // Handle binary image response
@@ -34,13 +40,21 @@ export async function GET(request: NextRequest) {
             const dataUrl = `data:${contentType};base64,${base64Image}`;
             return NextResponse.json({ imageUrl: dataUrl });
         } else {
-            // Fallback try JSON, or text
+            // Fallback for text/plain (e.g. "Workflow executed successfully")
+            const text = await response.text();
             try {
-                const data = await response.json();
+                const data = JSON.parse(text);
                 const responseData = Array.isArray(data) ? data[0] : data;
+                if (!responseData.imageUrl) {
+                    responseData.imageUrl = "https://placehold.co/600x800?text=Test+Data+Sent";
+                }
                 return NextResponse.json(responseData);
             } catch (e) {
-                throw new Error(`Unexpected content type: ${contentType}`);
+                // If it's just text, return it with a placeholder image
+                return NextResponse.json({
+                    imageUrl: "https://placehold.co/600x800?text=Test+Data+Sent",
+                    message: text
+                });
             }
         }
     } catch (error) {

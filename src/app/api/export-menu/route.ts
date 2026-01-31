@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
-    const n8nWebhookUrl = 'https://n8n.srv1004354.hstgr.cloud/webhook/d27670eb-ad4a-42ed-9b6f-acd4b00f78e6';
+    const target = searchParams.get('target') || 'pdf';
+
+    let n8nWebhookUrl = 'https://n8n.srv1004354.hstgr.cloud/webhook/d27670eb-ad4a-42ed-9b6f-acd4b00f78e6'; // Production (PDF)
+
+    if (target === 'web') {
+        n8nWebhookUrl = 'https://n8n.srv1004354.hstgr.cloud/webhook-test/d27670eb-ad4a-42ed-9b6f-acd4b00f78e6'; // Test (Web)
+    }
 
     try {
         const finalUrl = `${n8nWebhookUrl}?${searchParams.toString()}`;
@@ -26,7 +32,11 @@ export async function GET(request: NextRequest) {
             // Handle n8n returning an array (common behavior)
             const responseData = Array.isArray(data) ? data[0] : data;
 
-
+            // If targeting 'web' (test webhook), provide fallback image if missing to prevent frontend crash
+            if (target === 'web' && !responseData.imageUrl) {
+                responseData.imageUrl = "https://placehold.co/600x800?text=Web+Export+Sent";
+                responseData.success = true;
+            }
 
             return NextResponse.json(responseData);
         } else if (contentType && contentType.includes('image/')) {
@@ -37,12 +47,26 @@ export async function GET(request: NextRequest) {
             const dataUrl = `data:${contentType};base64,${base64Image}`;
             return NextResponse.json({ imageUrl: dataUrl });
         } else {
-            // Fallback try JSON, or text
+            // Fallback for text/plain (e.g. "Workflow executed successfully")
+            const text = await response.text();
             try {
-                const data = await response.json();
+                const data = JSON.parse(text);
                 const responseData = Array.isArray(data) ? data[0] : data;
+
+                // If targeting 'web', provide fallback
+                if (target === 'web' && !responseData.imageUrl) {
+                    responseData.imageUrl = "https://placehold.co/600x800?text=Web+Export+Sent";
+                }
+
                 return NextResponse.json(responseData);
             } catch (e) {
+                // If it's just text, return it with a placeholder image for web target
+                if (target === 'web') {
+                    return NextResponse.json({
+                        imageUrl: "https://placehold.co/600x800?text=Web+Export+Sent",
+                        message: text
+                    });
+                }
                 throw new Error(`Unexpected content type: ${contentType}`);
             }
         }

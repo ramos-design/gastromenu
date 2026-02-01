@@ -5,7 +5,8 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const target = body.target || 'pdf';
 
-        let n8nWebhookUrl = 'https://n8n.srv1004354.hstgr.cloud/webhook/d27670eb-ad4a-42ed-9b6f-acd4b00f78e6'; // Production (PDF)
+        // TEST Webhook for PDF/Debug
+        let n8nWebhookUrl = 'https://n8n.srv1004354.hstgr.cloud/webhook-test/d27670eb-ad4a-42ed-9b6f-acd4b00f78e6';
 
         if (target === 'web') {
             n8nWebhookUrl = 'https://n8n.srv1004354.hstgr.cloud/webhook/d27670eb-ad4a-42ed-9b6f-acd4b00f78e6'; // Production (Web)

@@ -82,12 +82,10 @@ function ExportPageContent() {
     if (type === 'pdf') {
       try {
         const localProxyUrl = '/api/export-menu';
+        const params = new URLSearchParams();
 
-        // Prepare payload object
-        const payload: Record<string, any> = {
-          target: 'pdf',
-          menuType: activeTab
-        };
+        // Pass menu type if needed, or stick to structure
+        params.append('menuType', activeTab);
 
         // Categorize dishes
         const menuSoups = sortedMenu.filter(d => d.category === 'Polévka');
@@ -97,39 +95,37 @@ function ExportPageContent() {
         // Map soups
         menuSoups.forEach((dish, index) => {
           const i = index + 1;
-          payload[`soup${i}_cz`] = dish.title_cz || '';
-          payload[`soup${i}_en`] = dish.title_en || '';
-          payload[`soup${i}_price`] = dish.price.toString();
+          params.append(`soup${i}_cz`, dish.title_cz || '');
+          params.append(`soup${i}_en`, dish.title_en || '');
+          params.append(`soup${i}_price`, dish.price.toString());
 
           const dishAllergenNumbers = dish.allergens.map(id => {
             const allergen = allergens.find(a => a.id === id);
             return allergen ? allergen.number : id;
           }).join(', ');
 
-          payload[`soup${i}_allergens`] = dishAllergenNumbers;
+          params.append(`soup${i}_allergens`, dishAllergenNumbers);
         });
 
         // Map main dishes
         menuMains.forEach((dish, index) => {
           const i = index + 1;
-          payload[`main${i}_cz`] = dish.title_cz || '';
-          payload[`main${i}_en`] = dish.title_en || '';
-          payload[`main${i}_price`] = dish.price.toString();
+          params.append(`main${i}_cz`, dish.title_cz || '');
+          params.append(`main${i}_en`, dish.title_en || '');
+          params.append(`main${i}_price`, dish.price.toString());
 
           const dishAllergenNumbers = dish.allergens.map(id => {
             const allergen = allergens.find(a => a.id === id);
             return allergen ? allergen.number : id;
           }).join(', ');
 
-          payload[`main${i}_allergens`] = dishAllergenNumbers;
+          params.append(`main${i}_allergens`, dishAllergenNumbers);
         });
 
-        const response = await fetch(localProxyUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload)
+        const finalUrl = `${localProxyUrl}?${params.toString()}`;
+
+        const response = await fetch(finalUrl, {
+          method: 'GET',
         });
 
         if (!response.ok) {
@@ -164,47 +160,41 @@ function ExportPageContent() {
       // Handle web export via API proxy
       try {
         const localProxyUrl = '/api/export-menu';
+        const params = new URLSearchParams();
+        params.append('menuType', activeTab);
+        params.append('target', 'web'); // Specify web target
 
-        const payload: Record<string, any> = {
-          target: 'web',
-          menuType: activeTab
-        };
-
+        // ... (dish mapping will be needed here as well, duplicate logic or refactor)
         const menuSoups = sortedMenu.filter(d => d.category === 'Polévka');
         const menuMains = sortedMenu.filter(d => d.category === 'Hlavní jídlo' || d.category === 'Snídaně');
 
         menuSoups.forEach((dish, index) => {
           const i = index + 1;
-          payload[`soup${i}_cz`] = dish.title_cz || '';
-          payload[`soup${i}_en`] = dish.title_en || '';
-          payload[`soup${i}_price`] = dish.price.toString();
+          params.append(`soup${i}_cz`, dish.title_cz || '');
+          params.append(`soup${i}_en`, dish.title_en || '');
+          params.append(`soup${i}_price`, dish.price.toString());
           const dishAllergenNumbers = dish.allergens.map(id => {
             const allergen = allergens.find(a => a.id === id);
             return allergen ? allergen.number : id;
           }).join(', ');
-          payload[`soup${i}_allergens`] = dishAllergenNumbers;
+          params.append(`soup${i}_allergens`, dishAllergenNumbers);
         });
 
         menuMains.forEach((dish, index) => {
           const i = index + 1;
-          payload[`main${i}_cz`] = dish.title_cz || '';
-          payload[`main${i}_en`] = dish.title_en || '';
-          payload[`main${i}_price`] = dish.price.toString();
+          params.append(`main${i}_cz`, dish.title_cz || '');
+          params.append(`main${i}_en`, dish.title_en || '');
+          params.append(`main${i}_price`, dish.price.toString());
           const dishAllergenNumbers = dish.allergens.map(id => {
             const allergen = allergens.find(a => a.id === id);
             return allergen ? allergen.number : id;
           }).join(', ');
-          payload[`main${i}_allergens`] = dishAllergenNumbers;
+          params.append(`main${i}_allergens`, dishAllergenNumbers);
         });
 
-        const response = await fetch(localProxyUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(payload)
-        });
+        const finalUrl = `${localProxyUrl}?${params.toString()}`;
 
+        const response = await fetch(finalUrl, { method: 'GET' });
         if (!response.ok) throw new Error(`Proxy error: ${response.statusText}`);
 
         // Web webhook typically doesn't return an image we need to display, but we handle the response

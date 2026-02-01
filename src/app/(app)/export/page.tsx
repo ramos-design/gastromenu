@@ -483,13 +483,15 @@ function ExportPageContent() {
 
                 <Button
                   variant="outline"
-                  onClick={() => handleGenerate('post')}
-                  disabled={output.loading || !currentMenu?.length}
-                  className="h-auto py-6 px-4 flex items-center justify-start gap-4 hover:bg-muted/50 transition-all border-2 w-full text-left"
+                  disabled={true}
+                  className="h-auto py-6 px-4 flex items-center justify-start gap-4 transition-all border-2 w-full text-left opacity-60 cursor-not-allowed"
                 >
-                  <ImageIcon className="w-8 h-8 text-pink-500" />
+                  <ImageIcon className="w-8 h-8 text-pink-500/50" />
                   <div className="space-y-1">
-                    <span className="font-bold block">Sociální sítě</span>
+                    <span className="font-bold block flex items-center gap-2">
+                      Sociální sítě
+                      <Badge variant="secondary" className="text-xs bg-muted text-muted-foreground">Již brzy</Badge>
+                    </span>
                     <span className="text-xs text-muted-foreground font-normal block">Příspěvky pro Instagram/FB</span>
                   </div>
                 </Button>

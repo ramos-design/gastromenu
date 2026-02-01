@@ -47,7 +47,7 @@ function MenuForm({ variant, soupsCount, mainsCount, mainsCategory = 'Hlavní j�
     return values;
   }, [menus, variant, soupsCount, mainsCount, mainsCategory]);
 
-  const { control, handleSubmit } = useForm({
+  const { control, handleSubmit, reset } = useForm({
     defaultValues
   });
 
@@ -57,6 +57,20 @@ function MenuForm({ variant, soupsCount, mainsCount, mainsCategory = 'Hlavní j�
       availableMains: dishes.filter(d => d.category === mainsCategory),
     };
   }, [dishes, mainsCategory]);
+
+  const handleReset = () => {
+    const resetValues: Record<string, string> = {};
+    for (let i = 1; i <= soupsCount; i++) resetValues[`soup${i}`] = "";
+    for (let i = 1; i <= mainsCount; i++) resetValues[`main${i}`] = "";
+
+    reset(resetValues);
+    saveMenu(variant, []);
+
+    toast({
+      title: "Menu resetováno",
+      description: "Formulář byl vymazán a uložené menu odstraněno.",
+    });
+  };
 
   const onSubmit = (data: any) => {
     const selectedIds = Object.values(data).filter(Boolean) as string[];
@@ -103,71 +117,103 @@ function MenuForm({ variant, soupsCount, mainsCount, mainsCategory = 'Hlavní j�
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-      {/* Soups Section */}
-      {soupsCount > 0 && (
-        <Card className="glass-card">
-          <CardHeader>
-            <CardTitle>Polévky</CardTitle>
+    <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 xl:grid-cols-[1fr_300px] gap-8 items-start">
+      <div className="space-y-8">
+        {/* Soups Section */}
+        {soupsCount > 0 && (
+          <Card className="glass-card">
+            <CardHeader>
+              <CardTitle>Polévky</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {Array.from({ length: soupsCount }).map((_, i) => (
+                  <Controller
+                    key={`soup${i + 1}`}
+                    name={`soup${i + 1}`}
+                    control={control}
+                    render={({ field }) => (
+                      <div className="space-y-2">
+                        <Label>Polévka {i + 1}</Label>
+                        <DishCombobox
+                          value={field.value}
+                          onChange={field.onChange}
+                          options={availableSoups}
+                          placeholder="Vyberte polévku"
+                        />
+                      </div>
+                    )}
+                  />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Main Dishes Section */}
+        {mainsCount > 0 && (
+          <Card className="glass-card">
+            <CardHeader>
+              <CardTitle>{mainsCategory === 'Snídaně' ? 'Snídaňová nabídka' : 'Hlavní jídla'}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {Array.from({ length: mainsCount }).map((_, i) => (
+                  <Controller
+                    key={`main${i + 1}`}
+                    name={`main${i + 1}`}
+                    control={control}
+                    render={({ field }) => (
+                      <div className="space-y-2">
+                        <Label>{mainsCategory === 'Snídaně' ? `Snídaně ${i + 1}` : `Hlavní jídlo ${i + 1}`}</Label>
+                        <DishCombobox
+                          value={field.value}
+                          onChange={field.onChange}
+                          options={availableMains}
+                          placeholder={mainsCategory === 'Snídaně' ? "Vyberte snídani" : "Vyberte hlavní jídlo"}
+                        />
+                      </div>
+                    )}
+                  />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Actions Column */}
+      <div className="space-y-4 xl:sticky xl:top-4">
+        <Card className="glass-card border-l-4 border-l-primary/20">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg">Akce</CardTitle>
+            <CardDescription>Možnosti menu</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {Array.from({ length: soupsCount }).map((_, i) => (
-                <Controller
-                  key={`soup${i + 1}`}
-                  name={`soup${i + 1}`}
-                  control={control}
-                  render={({ field }) => (
-                    <div className="space-y-2">
-                      <Label>Polévka {i + 1}</Label>
-                      <DishCombobox
-                        value={field.value}
-                        onChange={field.onChange}
-                        options={availableSoups}
-                        placeholder="Vyberte polévku"
-                      />
-                    </div>
-                  )}
-                />
-              ))}
+          <CardContent className="space-y-4">
+            <div className="grid gap-2">
+              <Label className="text-xs text-muted-foreground">1. Uložit</Label>
+              <Button type="submit" size="lg" className="w-full shadow-md font-bold text-md h-12">
+                Uložit a přejít na export
+              </Button>
+            </div>
+
+            <div className="relative py-2">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card px-2 text-muted-foreground">Nebo</span>
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label className="text-xs text-muted-foreground">2. Reset</Label>
+              <Button type="button" variant="outline" onClick={handleReset} className="w-full hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-colors">
+                Resetovat menu
+              </Button>
             </div>
           </CardContent>
         </Card>
-      )}
-
-      {/* Main Dishes Section */}
-      {mainsCount > 0 && (
-        <Card className="glass-card">
-          <CardHeader>
-            <CardTitle>{mainsCategory === 'Snídaně' ? 'Snídaňová nabídka' : 'Hlavní jídla'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {Array.from({ length: mainsCount }).map((_, i) => (
-                <Controller
-                  key={`main${i + 1}`}
-                  name={`main${i + 1}`}
-                  control={control}
-                  render={({ field }) => (
-                    <div className="space-y-2">
-                      <Label>{mainsCategory === 'Snídaně' ? `Snídaně ${i + 1}` : `Hlavní jídlo ${i + 1}`}</Label>
-                      <DishCombobox
-                        value={field.value}
-                        onChange={field.onChange}
-                        options={availableMains}
-                        placeholder={mainsCategory === 'Snídaně' ? "Vyberte snídani" : "Vyberte hlavní jídlo"}
-                      />
-                    </div>
-                  )}
-                />
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="flex justify-end">
-        <Button type="submit" size="lg">Uložit a přejít na export</Button>
       </div>
     </form>
   );

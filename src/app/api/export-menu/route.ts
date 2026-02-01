@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     let n8nWebhookUrl = 'https://n8n.srv1004354.hstgr.cloud/webhook/d27670eb-ad4a-42ed-9b6f-acd4b00f78e6';
 
     if (target === 'web') {
-        n8nWebhookUrl = 'https://n8n.srv1004354.hstgr.cloud/webhook/d27670eb-ad4a-42ed-9b6f-acd4b00f78e6'; // Production (Web)
+        n8nWebhookUrl = 'https://n8n.srv1004354.hstgr.cloud/webhook/560367cd-81c5-46b0-8abe-6649272c32cf'; // Production (Web)
     }
 
     try {

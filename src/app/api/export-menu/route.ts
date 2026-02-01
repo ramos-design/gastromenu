@@ -1,25 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
+    const searchParams = request.nextUrl.searchParams;
+    const target = searchParams.get('target') || 'pdf';
+
+    console.log('API /export-menu GET received params:', searchParams.toString());
+
+    // PRODUCTION Webhook for PDF (as requested)
+    let n8nWebhookUrl = 'https://n8n.srv1004354.hstgr.cloud/webhook/d27670eb-ad4a-42ed-9b6f-acd4b00f78e6';
+
+    if (target === 'web') {
+        n8nWebhookUrl = 'https://n8n.srv1004354.hstgr.cloud/webhook/d27670eb-ad4a-42ed-9b6f-acd4b00f78e6'; // Production (Web)
+    }
+
     try {
-        const body = await request.json();
-        const target = body.target || 'pdf';
-
-        // TEST Webhook for PDF/Debug
-        let n8nWebhookUrl = 'https://n8n.srv1004354.hstgr.cloud/webhook-test/d27670eb-ad4a-42ed-9b6f-acd4b00f78e6';
-
-        if (target === 'web') {
-            n8nWebhookUrl = 'https://n8n.srv1004354.hstgr.cloud/webhook/d27670eb-ad4a-42ed-9b6f-acd4b00f78e6'; // Production (Web)
-        }
+        const finalUrl = `${n8nWebhookUrl}?${searchParams.toString()}`;
+        console.log('Forwarding to n8n:', finalUrl);
 
         // Call n8n from the server to bypass CORS
-        // Using POST to send data in body, avoiding URL length limits
-        const response = await fetch(n8nWebhookUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(body),
+        const response = await fetch(finalUrl, {
+            method: 'GET',
         });
 
         if (!response.ok) {

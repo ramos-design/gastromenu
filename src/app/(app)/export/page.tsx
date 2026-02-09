@@ -161,6 +161,15 @@ function ExportPageContent() {
           setBulkPdfImages({ soups: soupsImg, mains: mainsImg, weekly: weeklyImg });
           setBulkViewIndex(0);
           setOutput({ type: 'bulk-pdf', loading: false, success: true });
+
+          // Save all dishes to history for bulk export
+          const allDishes = [
+            ...(menus.soups || []),
+            ...(menus.mains || []),
+            ...(menus.weekly || [])
+          ];
+          addMenuToHistory(allDishes, 'bulk-pdf');
+
           toast({ title: "Hromadný export dokončen", description: "Všechy 3 lístky byly vygenerovány." });
         } else {
           const img = await fetchPdf(activeTab);
@@ -230,7 +239,15 @@ function ExportPageContent() {
         await response.json();
 
         setOutput({ type: 'web', loading: false, success: true });
-        onGenerationSuccess();
+
+        // Save all dishes to history for web export
+        const allDishes = [
+          ...(menus.soups || []),
+          ...(menus.mains || []),
+          ...(menus.weekly || [])
+        ];
+        addMenuToHistory(allDishes, 'web');
+
         toast({
           title: "Hromadný export na web dokončen",
           description: "Všechny sekce menu (CZ + ceny + alergeny) byly odeslány v jednom balíku.",

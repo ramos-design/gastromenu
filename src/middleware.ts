@@ -36,7 +36,7 @@ export async function middleware(request: NextRequest) {
     } = await supabase.auth.getSession();
 
     // Protected routes - require authentication
-    const protectedRoutes = ['/dashboard', '/jidla', '/alergeny', '/sestav-menu', '/export', '/historie'];
+    const protectedRoutes = ['/dashboard', '/jidla', '/alergeny', '/sestav-menu', '/export', '/novinky'];
     const isProtectedRoute = protectedRoutes.some(route => request.nextUrl.pathname.startsWith(route));
 
     // Auth routes - redirect to dashboard if already logged in
@@ -73,7 +73,7 @@ export const config = {
         '/alergeny/:path*',
         '/sestav-menu/:path*',
         '/export/:path*',
-        '/historie/:path*',
+        '/novinky/:path*',
         '/login',
         '/register',
     ],

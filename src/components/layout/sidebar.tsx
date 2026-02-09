@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { CookingPot, LayoutDashboard, ListPlus, Sprout, Download, History, LogOut, User } from 'lucide-react';
+import { CookingPot, LayoutDashboard, ListPlus, Sprout, Download, History, LogOut, User, Sparkles } from 'lucide-react';
 import {
   Sidebar,
   SidebarHeader,
@@ -29,7 +29,6 @@ const menuItems = [
   { href: '/alergeny', label: 'Alergeny', icon: Sprout },
   { href: '/sestav-menu', label: 'Sestavit menu', icon: ListPlus },
   { href: '/export', label: 'Export', icon: Download },
-  { href: '/historie', label: 'Historie', icon: History },
 ];
 
 export default function AppSidebar() {

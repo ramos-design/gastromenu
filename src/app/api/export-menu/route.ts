@@ -3,14 +3,23 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const target = searchParams.get('target') || 'pdf';
+    const menuType = searchParams.get('menuType') || 'weekly';
 
     console.log('API /export-menu GET received params:', searchParams.toString());
 
-    // PRODUCTION Webhook for PDF (as requested)
-    let n8nWebhookUrl = 'https://n8n.srv1004354.hstgr.cloud/webhook/d27670eb-ad4a-42ed-9b6f-acd4b00f78e6';
+    // Webhooks for PDF (Specific per category)
+    let n8nWebhookUrl = 'https://n8n.srv1004354.hstgr.cloud/webhook/d27670eb-ad4a-42ed-9b6f-acd4b00f78e6'; // Default (Weekly)
 
-    if (target === 'web') {
-        n8nWebhookUrl = 'https://n8n.srv1004354.hstgr.cloud/webhook/560367cd-81c5-46b0-8abe-6649272c32cf'; // Production (Web)
+    if (target === 'pdf') {
+        if (menuType === 'soups') {
+            n8nWebhookUrl = 'https://n8n.srv1004354.hstgr.cloud/webhook/38feaf38-d24b-4ce7-8d0e-0bb807fb3aa2';
+        } else if (menuType === 'mains') {
+            n8nWebhookUrl = 'https://n8n.srv1004354.hstgr.cloud/webhook/27be82b8-f7cf-4907-a1f1-971e5cdb9d9e';
+        } else if (menuType === 'weekly') {
+            n8nWebhookUrl = 'https://n8n.srv1004354.hstgr.cloud/webhook/d27670eb-ad4a-42ed-9b6f-acd4b00f78e6';
+        }
+    } else if (target === 'web') {
+        n8nWebhookUrl = 'https://n8n.srv1004354.hstgr.cloud/webhook/560367cd-81c5-46b0-8abe-6649272c32cf'; // Production Webhook
     }
 
     try {

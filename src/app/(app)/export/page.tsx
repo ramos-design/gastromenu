@@ -12,7 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Download, FileText, Globe, Image as ImageIcon, Pilcrow, Loader2 } from 'lucide-react';
+import { Download, FileText, Globe, Image as ImageIcon, Pilcrow, Loader2, Zap, Layers, Printer, ChevronRight } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useToast } from '@/hooks/use-toast';
@@ -27,10 +27,24 @@ import {
 import type { MenuVariant } from '@/lib/types';
 
 type MenuOutput = {
-  type: 'pdf' | 'post' | 'web' | null;
+  type: 'pdf' | 'post' | 'web' | 'bulk-pdf' | null;
   loading: boolean;
   success: boolean;
 };
+
+type BulkPdfOutput = {
+  soups: string | null;
+  mains: string | null;
+  weekly: string | null;
+};
+
+
+const MENU_LIMITS: Record<MenuVariant, { soups: number; mains: number }> = {
+  soups: { soups: 2, mains: 0 },
+  mains: { soups: 0, mains: 5 },
+  weekly: { soups: 0, mains: 2 },
+};
+
 
 function ExportPageContent() {
   const { menus, addMenuToHistory, allergens } = useGastro();
@@ -40,10 +54,14 @@ function ExportPageContent() {
 
   const [activeTab, setActiveTab] = useState<MenuVariant>(initialTab);
   const [lang, setLang] = useState<'cz' | 'en'>('cz');
+  const [exportMode, setExportMode] = useState<'single' | 'bulk'>('single');
   const [output, setOutput] = useState<MenuOutput>({ type: null, loading: false, success: false });
   const [generatedPdfImage, setGeneratedPdfImage] = useState<string | null>(null);
+  const [bulkPdfImages, setBulkPdfImages] = useState<BulkPdfOutput>({ soups: null, mains: null, weekly: null });
+  const [bulkViewIndex, setBulkViewIndex] = useState(0);
   const [isPreviewVisible, setIsPreviewVisible] = useState(true);
   const [hasMounted, setHasMounted] = useState(false);
+
 
   useEffect(() => {
     setHasMounted(true);
@@ -54,21 +72,24 @@ function ExportPageContent() {
     setIsPreviewVisible(true);
     setOutput({ type: null, loading: false, success: false });
     setGeneratedPdfImage(null);
-  }, [activeTab]);
+    setBulkPdfImages({ soups: null, mains: null, weekly: null });
+  }, [activeTab, exportMode]);
+
 
   const currentMenu = menus[activeTab] || [];
 
   const sortedMenu = useMemo(() => {
     if (!currentMenu) return [];
-    return [...currentMenu].sort((a, b) => {
-      // Polévka first
-      if (a.category === 'Polévka' && b.category !== 'Polévka') return -1;
-      if (a.category !== 'Polévka' && b.category === 'Polévka') return 1;
-      return 0;
-    });
-  }, [currentMenu]);
 
-  const handleGenerate = async (type: 'pdf' | 'post' | 'web') => {
+    const limit = MENU_LIMITS[activeTab];
+    const soups = currentMenu.filter(d => d.category === 'Polévka').slice(0, limit.soups);
+    const mains = currentMenu.filter(d => d.category === 'Hlavní jídlo' || d.category === 'Snídaně').slice(0, limit.mains);
+
+    return [...soups, ...mains];
+  }, [currentMenu, activeTab]);
+
+
+  const handleGenerate = async (type: 'pdf' | 'post' | 'web' | 'bulk-pdf') => {
     setIsPreviewVisible(false);
     setOutput({ type: type, loading: true, success: false });
     setGeneratedPdfImage(null);
@@ -79,132 +100,140 @@ function ExportPageContent() {
       }
     };
 
-    if (type === 'pdf') {
+    const constructParams = (variant: MenuVariant, target?: string) => {
+      const menuItems = menus[variant] || [];
+      const limit = MENU_LIMITS[variant];
+      const sorted = [...menuItems].sort((a, b) => {
+        if (a.category === 'Polévka' && b.category !== 'Polévka') return -1;
+        if (a.category !== 'Polévka' && b.category === 'Polévka') return 1;
+        return 0;
+      });
+      const mSoups = sorted.filter(d => d.category === 'Polévka').slice(0, limit.soups);
+      const mMains = sorted.filter(d => d.category === 'Hlavní jídlo' || d.category === 'Snídaně').slice(0, limit.mains);
+
+      const params = new URLSearchParams();
+      params.append('menuType', variant);
+      if (target) params.append('target', target);
+
+      mSoups.forEach((dish, idx) => {
+        const i = idx + 1;
+        params.append(`soup${i}_cz`, dish.title_cz || '');
+        params.append(`soup${i}_en`, dish.title_en || '');
+        params.append(`soup${i}_price`, dish.price.toString());
+        const dishAllergens = dish.allergens.map(id => {
+          const allergen = allergens.find(a => a.id === id);
+          return allergen ? allergen.number : id;
+        }).join(', ');
+        params.append(`soup${i}_allergens`, dishAllergens);
+      });
+
+      mMains.forEach((dish, idx) => {
+        const i = idx + 1;
+        params.append(`main${i}_cz`, dish.title_cz || '');
+        params.append(`main${i}_en`, dish.title_en || '');
+        params.append(`main${i}_price`, dish.price.toString());
+        const dishAllergens = dish.allergens.map(id => {
+          const allergen = allergens.find(a => a.id === id);
+          return allergen ? allergen.number : id;
+        }).join(', ');
+        params.append(`main${i}_allergens`, dishAllergens);
+      });
+      return params;
+    };
+
+    if (type === 'pdf' || type === 'bulk-pdf') {
       try {
-        const localProxyUrl = '/api/export-menu';
-        const params = new URLSearchParams();
+        const fetchPdf = async (variant: MenuVariant) => {
+          const params = constructParams(variant);
+          const response = await fetch(`/api/export-menu?${params.toString()}`);
+          if (!response.ok) throw new Error(`Chyba u ${variant}: ${response.statusText}`);
+          const data = await response.json();
+          return data.imageUrl;
+        };
 
-        // Pass menu type if needed, or stick to structure
-        params.append('menuType', activeTab);
-
-        // Categorize dishes
-        const menuSoups = sortedMenu.filter(d => d.category === 'Polévka');
-        // Treat Breakfast items as mains for the prompt structure unless we change backend
-        const menuMains = sortedMenu.filter(d => d.category === 'Hlavní jídlo' || d.category === 'Snídaně');
-
-        // Map soups
-        menuSoups.forEach((dish, index) => {
-          const i = index + 1;
-          params.append(`soup${i}_cz`, dish.title_cz || '');
-          params.append(`soup${i}_en`, dish.title_en || '');
-          params.append(`soup${i}_price`, dish.price.toString());
-
-          const dishAllergenNumbers = dish.allergens.map(id => {
-            const allergen = allergens.find(a => a.id === id);
-            return allergen ? allergen.number : id;
-          }).join(', ');
-
-          params.append(`soup${i}_allergens`, dishAllergenNumbers);
-        });
-
-        // Map main dishes
-        menuMains.forEach((dish, index) => {
-          const i = index + 1;
-          params.append(`main${i}_cz`, dish.title_cz || '');
-          params.append(`main${i}_en`, dish.title_en || '');
-          params.append(`main${i}_price`, dish.price.toString());
-
-          const dishAllergenNumbers = dish.allergens.map(id => {
-            const allergen = allergens.find(a => a.id === id);
-            return allergen ? allergen.number : id;
-          }).join(', ');
-
-          params.append(`main${i}_allergens`, dishAllergenNumbers);
-        });
-
-        const finalUrl = `${localProxyUrl}?${params.toString()}`;
-
-        const response = await fetch(finalUrl, {
-          method: 'GET',
-        });
-
-        if (!response.ok) {
-          throw new Error(`Proxy error: ${response.statusText}`);
+        if (exportMode === 'bulk') {
+          setOutput({ type: 'bulk-pdf', loading: true, success: false });
+          const [soupsImg, mainsImg, weeklyImg] = await Promise.all([
+            fetchPdf('soups'),
+            fetchPdf('mains'),
+            fetchPdf('weekly')
+          ]);
+          setBulkPdfImages({ soups: soupsImg, mains: mainsImg, weekly: weeklyImg });
+          setBulkViewIndex(0);
+          setOutput({ type: 'bulk-pdf', loading: false, success: true });
+          toast({ title: "Hromadný export dokončen", description: "Všechy 3 lístky byly vygenerovány." });
+        } else {
+          const img = await fetchPdf(activeTab);
+          setGeneratedPdfImage(img);
+          setOutput({ type: 'pdf', loading: false, success: true });
+          onGenerationSuccess();
+          toast({ title: "Úspěšně vygenerováno", description: "Menu pro tisk bylo vygenerováno." });
         }
-
-        const data = await response.json();
-
-        if (!data.imageUrl) {
-          throw new Error('Webhook nevrátil obrázek.');
-        }
-
-        setGeneratedPdfImage(data.imageUrl);
-        setOutput({ type: type, loading: false, success: true });
-        onGenerationSuccess();
-        toast({
-          title: "Úspěšně vygenerováno",
-          description: "Menu pro tisk bylo vygenerováno přímo v aplikaci.",
-        });
-
       } catch (error) {
         console.error("Failed to generate PDF:", error);
-        const message = error instanceof Error ? error.message : 'Neznámá chyba';
-        toast({
-          variant: "destructive",
-          title: "Chyba při generování",
-          description: message,
-        });
+        toast({ variant: "destructive", title: "Chyba při generování", description: error instanceof Error ? error.message : 'Chyba' });
         setOutput({ type: type, loading: false, success: false });
       }
     } else if (type === 'web') {
-      // Handle web export via API proxy
       try {
-        const localProxyUrl = '/api/export-menu';
-        const params = new URLSearchParams();
-        params.append('menuType', activeTab);
-        params.append('target', 'web'); // Specify web target
+        if (exportMode !== 'bulk') {
+          throw new Error("Export na web je dostupný pouze v hromadném režimu.");
+        }
 
-        // ... (dish mapping will be needed here as well, duplicate logic or refactor)
-        const menuSoups = sortedMenu.filter(d => d.category === 'Polévka');
-        const menuMains = sortedMenu.filter(d => d.category === 'Hlavní jídlo' || d.category === 'Snídaně');
+        const bulkParams = new URLSearchParams();
+        bulkParams.append('target', 'web');
+        bulkParams.append('menuType', 'bulk');
 
-        menuSoups.forEach((dish, index) => {
-          const i = index + 1;
-          params.append(`soup${i}_cz`, dish.title_cz || '');
-          params.append(`soup${i}_en`, dish.title_en || '');
-          params.append(`soup${i}_price`, dish.price.toString());
-          const dishAllergenNumbers = dish.allergens.map(id => {
-            const allergen = allergens.find(a => a.id === id);
-            return allergen ? allergen.number : id;
-          }).join(', ');
-          params.append(`soup${i}_allergens`, dishAllergenNumbers);
-        });
+        // Helper to add category data to bulkParams
+        const addCategoryToBulk = (variant: MenuVariant, prefix: string) => {
+          const menuItems = menus[variant] || [];
+          const limit = MENU_LIMITS[variant];
+          const sorted = [...menuItems].sort((a, b) => {
+            if (a.category === 'Polévka' && b.category !== 'Polévka') return -1;
+            if (a.category !== 'Polévka' && b.category === 'Polévka') return 1;
+            return 0;
+          });
+          const mSoups = sorted.filter(d => d.category === 'Polévka').slice(0, limit.soups);
+          const mMains = sorted.filter(d => d.category === 'Hlavní jídlo' || d.category === 'Snídaně').slice(0, limit.mains);
 
-        menuMains.forEach((dish, index) => {
-          const i = index + 1;
-          params.append(`main${i}_cz`, dish.title_cz || '');
-          params.append(`main${i}_en`, dish.title_en || '');
-          params.append(`main${i}_price`, dish.price.toString());
-          const dishAllergenNumbers = dish.allergens.map(id => {
-            const allergen = allergens.find(a => a.id === id);
-            return allergen ? allergen.number : id;
-          }).join(', ');
-          params.append(`main${i}_allergens`, dishAllergenNumbers);
-        });
+          mSoups.forEach((dish, idx) => {
+            const i = idx + 1;
+            bulkParams.append(`${prefix}_soup${i}_cz`, dish.title_cz || '');
+            bulkParams.append(`${prefix}_soup${i}_price`, dish.price.toString());
+            const dishAllergens = dish.allergens.map(id => {
+              const allergen = allergens.find(a => a.id === id);
+              return allergen ? allergen.number : id;
+            }).join(', ');
+            bulkParams.append(`${prefix}_soup${i}_allergens`, dishAllergens);
+          });
 
-        const finalUrl = `${localProxyUrl}?${params.toString()}`;
+          mMains.forEach((dish, idx) => {
+            const i = idx + 1;
+            bulkParams.append(`${prefix}_main${i}_cz`, dish.title_cz || '');
+            bulkParams.append(`${prefix}_main${i}_price`, dish.price.toString());
+            const dishAllergens = dish.allergens.map(id => {
+              const allergen = allergens.find(a => a.id === id);
+              return allergen ? allergen.number : id;
+            }).join(', ');
+            bulkParams.append(`${prefix}_main${i}_allergens`, dishAllergens);
+          });
+        };
 
-        const response = await fetch(finalUrl, { method: 'GET' });
-        if (!response.ok) throw new Error(`Proxy error: ${response.statusText}`);
+        // Add all categories
+        addCategoryToBulk('soups', 'soups');
+        addCategoryToBulk('mains', 'mains');
+        addCategoryToBulk('weekly', 'weekly');
 
-        // Web webhook typically doesn't return an image we need to display, but we handle the response
+        const response = await fetch(`/api/export-menu?${bulkParams.toString()}`);
+        if (!response.ok) throw new Error(`Chyba při hromadném exportu: ${response.statusText}`);
+
         await response.json();
 
-        setOutput({ type: type, loading: false, success: true });
+        setOutput({ type: 'web', loading: false, success: true });
         onGenerationSuccess();
         toast({
-          title: "Úspěšně exportováno",
-          description: "Menu bylo úspěšně odesláno na web.",
+          title: "Hromadný export na web dokončen",
+          description: "Všechny sekce menu (CZ + ceny + alergeny) byly odeslány v jednom balíku.",
         });
 
       } catch (error) {
@@ -212,12 +241,14 @@ function ExportPageContent() {
         const message = error instanceof Error ? error.message : 'Neznámá chyba';
         toast({
           variant: "destructive",
-          title: "Chyba při exportu",
+          title: "Chyba při exportu na web",
           description: message,
         });
-        setOutput({ type: type, loading: false, success: false });
+        setOutput({ type: 'web', loading: false, success: false });
       }
-    } else {
+    }
+
+    else {
       // Simulate other generation types (post)
       setTimeout(() => {
         setOutput({ type: type, loading: false, success: true });
@@ -230,24 +261,31 @@ function ExportPageContent() {
     }
   }
 
-  const handleDownload = () => {
-    if (!generatedPdfImage) return;
+  const handleDownload = (imgUrl?: string, filename: string = 'menu.png') => {
+    const url = imgUrl || generatedPdfImage;
+    if (!url) return;
     try {
       const link = document.createElement('a');
-      link.href = generatedPdfImage;
-      link.setAttribute('download', 'menu.png');
+      link.href = url;
+      link.setAttribute('download', filename);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
     } catch (error) {
-      console.error("Chyba při stahování obrázku:", error);
-      toast({
-        variant: "destructive",
-        title: "Chyba při stahování",
-        description: "Obrázek se nepodařilo stáhnout. Zkuste to prosím znovu.",
-      });
+      console.error("Chyba při stahování:", error);
     }
   };
+
+  const handleDownloadAll = () => {
+    if (bulkPdfImages.soups) handleDownload(bulkPdfImages.soups, 'polevky.png');
+    setTimeout(() => {
+      if (bulkPdfImages.mains) handleDownload(bulkPdfImages.mains, 'hlavni_chod.png');
+    }, 200);
+    setTimeout(() => {
+      if (bulkPdfImages.weekly) handleDownload(bulkPdfImages.weekly, 'tydenni_menu.png');
+    }, 400);
+  };
+
 
   const czPostImage = PlaceHolderImages.find(p => p.id === 'cz-post-placeholder');
   const enPostImage = PlaceHolderImages.find(p => p.id === 'en-post-placeholder');
@@ -277,24 +315,81 @@ function ExportPageContent() {
           if (generatedPdfImage) {
             return (
               <Card className="glass-card">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                   <CardTitle>Náhled pro tisk</CardTitle>
-                  <Button onClick={handleDownload} size="sm">
+                  <Button onClick={() => handleDownload()} size="sm">
                     <Download className="mr-2 h-4 w-4" /> Stáhnout obrázek
                   </Button>
                 </CardHeader>
                 <CardContent>
-                  <Image src={generatedPdfImage} alt="Vygenerované menu pro tisk" width={800} height={1128} className="rounded-lg border shadow-md w-full h-auto" />
+                  <Image src={generatedPdfImage} alt="Vygenerované menu" width={800} height={1128} className="rounded-lg border shadow-md w-full h-auto" />
                 </CardContent>
               </Card>
             );
           }
+          return null;
+        case 'bulk-pdf':
+          const bulkItems = [
+            { id: 'soups', label: 'Polévky', img: bulkPdfImages.soups },
+            { id: 'mains', label: 'Hlavní chod', img: bulkPdfImages.mains },
+            { id: 'weekly', label: 'Týdenní menu', img: bulkPdfImages.weekly },
+          ].filter(item => item.img);
+
+          const currentItem = bulkItems[bulkViewIndex];
+
           return (
             <Card className="glass-card">
-              <CardHeader><CardTitle>Chyba</CardTitle></CardHeader>
-              <CardContent><p>Obrázek se nepodařilo načíst.</p></CardContent>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b">
+                <div className="space-y-1">
+                  <CardTitle>Hromadný náhled ({currentItem?.label})</CardTitle>
+                  <CardDescription>Položka {bulkViewIndex + 1} z {bulkItems.length}</CardDescription>
+                </div>
+                <Button onClick={handleDownloadAll} size="sm" className="bg-primary hover:bg-primary/90">
+                  <Download className="mr-2 h-4 w-4" /> Stáhnout vše najednou
+                </Button>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="relative group">
+                  {currentItem?.img && (
+                    <Image
+                      src={currentItem.img}
+                      alt={currentItem.label}
+                      width={800}
+                      height={1128}
+                      className="rounded-lg border shadow-xl w-full h-auto transition-all duration-300"
+                    />
+                  )}
+
+                  {/* Carousel Controls */}
+                  <div className="flex justify-center gap-2 mt-6">
+                    {bulkItems.map((_, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setBulkViewIndex(idx)}
+                        className={`h-2.5 rounded-full transition-all duration-300 ${bulkViewIndex === idx ? 'w-8 bg-primary' : 'w-2.5 bg-muted-foreground/30 hover:bg-muted-foreground/50'
+                          }`}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Simple prev/next overlay buttons for desktop */}
+                  <button
+                    onClick={() => setBulkViewIndex(prev => (prev > 0 ? prev - 1 : bulkItems.length - 1))}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white p-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                  </button>
+                  <button
+                    onClick={() => setBulkViewIndex(prev => (prev < bulkItems.length - 1 ? prev + 1 : 0))}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white p-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                  </button>
+                </div>
+              </CardContent>
             </Card>
           );
+
         case 'post':
           return (
             <Card className="glass-card">
@@ -359,27 +454,27 @@ function ExportPageContent() {
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as MenuVariant)} className="flex flex-col md:flex-row gap-8 items-start w-full">
         <TabsList className="flex flex-col w-full md:w-64 h-auto p-1 gap-2 bg-transparent shrink-0">
           <TabsTrigger
-            value="breakfast"
-            disabled
-            className="w-full justify-between px-4 py-3 text-base bg-muted/20 opacity-50 cursor-not-allowed data-[state=active]:bg-orange-100 data-[state=active]:text-orange-900 border border-transparent data-[state=active]:border-orange-200 rounded-lg transition-all"
+            value="soups"
+            key="tab-soups-trigger"
+            className="w-full justify-start px-4 py-3 text-base bg-muted/20 data-[state=active]:bg-primary data-[state=active]:text-white border border-transparent rounded-lg shadow-sm transition-all"
           >
-            <span>Snídaně</span>
-            <Badge variant="outline" className="text-[10px] h-5 bg-background/50">Již brzy</Badge>
+            Polévky
           </TabsTrigger>
           <TabsTrigger
-            value="standard"
-            disabled
-            className="w-full justify-between px-4 py-3 text-base bg-muted/20 opacity-50 cursor-not-allowed data-[state=active]:bg-blue-100 data-[state=active]:text-blue-900 border border-transparent data-[state=active]:border-blue-200 rounded-lg transition-all"
+            value="mains"
+            key="tab-mains-trigger"
+            className="w-full justify-start px-4 py-3 text-base bg-muted/20 data-[state=active]:bg-primary data-[state=active]:text-white border border-transparent rounded-lg shadow-sm transition-all"
           >
-            <span>Jídelní menu</span>
-            <Badge variant="outline" className="text-[10px] h-5 bg-background/50">Již brzy</Badge>
+            Hlavní chod
           </TabsTrigger>
           <TabsTrigger
             value="weekly"
-            className="w-full justify-start px-4 py-3 text-base bg-muted/20 data-[state=active]:bg-green-100 data-[state=active]:text-green-900 border border-transparent data-[state=active]:border-green-200 rounded-lg transition-all"
+            key="tab-weekly-trigger"
+            className="w-full justify-start px-4 py-3 text-base bg-muted/20 data-[state=active]:bg-primary data-[state=active]:text-white border border-transparent rounded-lg shadow-sm transition-all"
           >
             Týdenní menu
           </TabsTrigger>
+
         </TabsList>
 
         <div className="flex-1 w-full grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
@@ -395,59 +490,63 @@ function ExportPageContent() {
                 </Button>
               </div>
             ) : isPreviewVisible ? (
-              <Card className="glass-card">
-                <CardHeader>
-                  <div className="flex justify-between items-center">
-                    <CardTitle>Náhled menu ({activeTab === 'breakfast' ? 'Snídaně' : activeTab === 'standard' ? 'Jídelní menu' : 'Týdenní menu'})</CardTitle>
-                    <div className="flex items-center space-x-2">
-                      <Label htmlFor="lang-switch">CZ</Label>
-                      <Switch id="lang-switch" checked={lang === 'en'} onCheckedChange={(checked) => setLang(checked ? 'en' : 'cz')} />
-                      <Label htmlFor="lang-switch">EN</Label>
+              <div className="space-y-6">
+                <Card className="glass-card">
+                  <CardHeader>
+                    <div className="flex justify-between items-center">
+                      <CardTitle>Náhled menu ({activeTab === 'soups' ? 'Polévky' : activeTab === 'mains' ? 'Hlavní chod' : 'Týdenní menu'})</CardTitle>
+
+                      <div className="flex items-center space-x-2">
+                        <Label htmlFor="lang-switch">CZ</Label>
+                        <Switch id="lang-switch" checked={lang === 'en'} onCheckedChange={(checked) => setLang(checked ? 'en' : 'cz')} />
+                        <Label htmlFor="lang-switch">EN</Label>
+                      </div>
                     </div>
-                  </div>
-                  <CardDescription>Zkontrolujte sestavené menu.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[70%]">Název jídla</TableHead>
-                        <TableHead className="text-right">Cena</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {sortedMenu.map((dish) => (
-                        <TableRow key={dish.id}>
-                          <TableCell>
-                            <div className="font-medium">
-                              {lang === 'cz' ? dish.title_cz : dish.title_en}
-                            </div>
-                            <div className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
-                              <span className="text-xs">Alergeny:</span>
-                              <div className="flex gap-1">
-                                {dish.allergens.map(id => (
-                                  <Badge key={id} variant="secondary" className="px-1 py-0 text-[10px]">
-                                    {getAllergenNumber(id)}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right align-top pt-4 font-bold">
-                            {dish.price} Kč
-                          </TableCell>
+                    <CardDescription>Zkontrolujte sestavené menu.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[70%]">Název jídla</TableHead>
+                          <TableHead className="text-right">Cena</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
+                      </TableHeader>
+                      <TableBody key={activeTab}>
+                        {sortedMenu.map((dish, index) => (
+                          <TableRow key={`${activeTab}-${dish.id}-${index}`}>
+                            <TableCell>
+                              <div className="font-medium">
+                                {lang === 'cz' ? dish.title_cz : dish.title_en}
+                              </div>
+                              <div className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
+                                <span className="text-xs">Alergeny:</span>
+                                <div className="flex gap-1">
+                                  {dish.allergens.map(id => (
+                                    <Badge key={id} variant="secondary" className="px-1 py-0 text-[10px]">
+                                      {getAllergenNumber(id)}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right align-top pt-4 font-bold">
+                              {dish.price} Kč
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              </div>
             ) : (
               renderOutput()
             )}
           </div>
 
-          {/* Right Column - Actions */}
+
+
           <div className="space-y-6">
             <Card className="glass-card">
               <CardHeader>
@@ -455,29 +554,53 @@ function ExportPageContent() {
                 <CardDescription>Vytvořte z menu podklady</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
+                {/* Mode Switcher */}
+                <div className="bg-slate-200/50 p-1 rounded-xl flex gap-1 border border-slate-300/50 mb-3">
+                  <button
+                    onClick={() => setExportMode('single')}
+                    className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 ${exportMode === 'single'
+                      ? 'bg-primary text-white shadow-lg transform scale-[1.02]'
+                      : 'text-slate-500 hover:text-slate-700 hover:bg-white/30'
+                      }`}
+                  >
+                    Jednotlivě
+                  </button>
+                  <button
+                    onClick={() => setExportMode('bulk')}
+                    className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 ${exportMode === 'bulk'
+                      ? 'bg-primary text-white shadow-lg transform scale-[1.02]'
+                      : 'text-slate-500 hover:text-slate-700 hover:bg-white/30'
+                      }`}
+                  >
+                    Hromadně
+                  </button>
+                </div>
+
                 <Button
                   variant="outline"
-                  onClick={() => handleGenerate('pdf')}
-                  disabled={output.loading || !currentMenu?.length || activeTab !== 'weekly'}
-                  className="h-auto py-6 px-4 flex items-center justify-between gap-4 hover:bg-muted/50 transition-all border-2 w-full text-left bg-card"
+                  onClick={() => handleGenerate(exportMode === 'bulk' ? 'bulk-pdf' : 'pdf')}
+                  disabled={output.loading}
+                  className={`h-auto py-6 px-4 flex items-center justify-between gap-4 transition-all border-2 w-full text-left bg-card ${exportMode === 'bulk' ? 'border-primary ring-2 ring-primary/10' : 'hover:bg-muted/50'}`}
                 >
                   <div className="flex items-center gap-4">
-                    {output.loading && output.type === 'pdf' ? (
+                    {output.loading && (output.type === 'pdf' || output.type === 'bulk-pdf') ? (
                       <Loader2 className="h-8 w-8 animate-spin text-primary" />
                     ) : (
-                      <FileText className={`w-8 h-8 ${activeTab === 'weekly' ? 'text-primary' : 'text-muted-foreground'}`} />
+                      <Printer className="w-8 h-8 text-primary" />
                     )}
                     <div className="space-y-1">
                       <span className="font-bold block flex items-center gap-2">
-                        Tiskové menu
-                        {activeTab !== 'weekly' && (
-                          <Badge variant="secondary" className="text-xs bg-muted text-muted-foreground">Již brzy</Badge>
-                        )}
+                        {exportMode === 'bulk'
+                          ? 'Generovat vše hromadně'
+                          : `Tiskové menu ${activeTab === 'soups' ? 'Polévky' : activeTab === 'mains' ? 'Hlavní chod' : 'Týdenní menu'}`}
                       </span>
                       <span className="text-xs text-muted-foreground font-normal block">
-                        {activeTab === 'weekly' ? 'Vygenerovat menu k tisku' : 'Zatím dostupné jen pro Týdenní menu'}
+                        {exportMode === 'bulk'
+                          ? 'Spustí export pro všechny 3 sekce najednou'
+                          : `Vygenerovat ${activeTab === 'soups' ? 'polévkový lístek' : activeTab === 'mains' ? 'nabídku hlavních jídel' : 'kompletní týdenní přehled'}`}
                       </span>
                     </div>
+
                   </div>
                 </Button>
 
@@ -496,26 +619,34 @@ function ExportPageContent() {
                   </div>
                 </Button>
 
-                {activeTab === 'weekly' && (
-                  <Button
-                    variant="outline"
-                    onClick={() => handleGenerate('web')}
-                    disabled={output.loading || !currentMenu?.length}
-                    className="h-auto py-6 px-4 flex items-center justify-start gap-4 hover:bg-muted/50 transition-all border-2 w-full text-left"
-                  >
-                    <Globe className="w-8 h-8 text-blue-500" />
-                    <div className="space-y-1">
-                      <span className="font-bold block">Webové stránky</span>
-                      <span className="text-xs text-muted-foreground font-normal block">Propsat na web restaurace</span>
-                    </div>
-                  </Button>
-                )}
+                <Button
+                  variant="outline"
+                  onClick={() => handleGenerate('web')}
+                  disabled={output.loading || exportMode === 'single'}
+                  className={`h-auto py-6 px-4 flex items-center justify-start gap-4 transition-all border-2 w-full text-left ${exportMode === 'single' ? 'opacity-50 grayscale bg-muted/20' : 'hover:bg-muted/50'}`}
+                >
+                  <Globe className={`w-8 h-8 ${exportMode === 'single' ? 'text-slate-400' : 'text-blue-500'}`} />
+                  <div className="space-y-1">
+                    <span className="font-bold block flex items-center gap-2">
+                      Webové stránky
+                      {exportMode === 'single' && <Badge variant="outline" className="text-[10px] py-0 h-4 border-slate-300">Pouze hromadně</Badge>}
+                    </span>
+                    <span className="text-xs text-muted-foreground font-normal block">
+                      {exportMode === 'single'
+                        ? 'Export na web vyžaduje hromadný režim'
+                        : 'Propsat všechny 3 sekce menu na web najednou'}
+                    </span>
+                  </div>
+                </Button>
               </CardContent>
             </Card>
           </div>
+
+
         </div>
       </Tabs>
     </div>
+
   );
 }
 

@@ -84,11 +84,12 @@ export default function HistoriePage() {
                       <div className="text-left">
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="text-xl font-semibold leading-none tracking-tight">
-                            {item.variant === 'breakfast' ? 'Snídaně' :
-                              item.variant === 'standard' ? 'Jídelní menu' :
+                            {item.variant === 'soups' ? 'Polévky' :
+                              item.variant === 'mains' ? 'Hlavní chod' :
                                 item.variant === 'weekly' ? 'Týdenní menu' :
                                   'Menu'} ze dne: {formatDate(item.date)}
                           </h3>
+
                           {getExportTypeBadge(item.exportType)}
                         </div>
                         <p className="text-sm text-muted-foreground">Počet jídel: {item.dishes.length}</p>

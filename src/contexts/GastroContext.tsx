@@ -35,7 +35,7 @@ interface GastroContextType {
   addAllergen: (allergen: Omit<Allergen, 'id'>) => void;
   updateAllergen: (allergen: Allergen) => void;
   deleteAllergen: (id: string) => void;
-  addMenuToHistory: (dishes: Dish[], exportType?: 'pdf' | 'post' | 'web', variant?: MenuVariant) => Promise<void>;
+  addMenuToHistory: (dishes: Dish[], exportType?: 'pdf' | 'post' | 'web' | 'bulk-pdf', variant?: MenuVariant) => Promise<void>;
   deleteMenuFromHistory: (id: string) => Promise<void>;
   isAllergenInUse: (id: string) => boolean;
 }
@@ -68,23 +68,48 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   // Still use local storage for currentMenu (draft state) - NOW SPLIT
-  const [currentBreakfast, setCurrentBreakfast] = useLocalStorage<Dish[]>(`${storagePrefix}menu_breakfast`, []);
-  const [currentStandard, setCurrentStandard] = useLocalStorage<Dish[]>(`${storagePrefix}menu_standard`, []);
+  const [currentSoups, setCurrentSoups] = useLocalStorage<Dish[]>(`${storagePrefix}menu_soups`, []);
+  const [currentMains, setCurrentMains] = useLocalStorage<Dish[]>(`${storagePrefix}menu_mains`, []);
   const [currentWeekly, setCurrentWeekly] = useLocalStorage<Dish[]>(`${storagePrefix}menu_weekly`, []);
 
   const saveMenu = useCallback((variant: MenuVariant, dishes: Dish[]) => {
+    // Deduplicate by ID before saving
+    const uniqueDishes = Array.from(new Map(dishes.map(d => [d.id, d])).values());
+
     switch (variant) {
-      case 'breakfast':
-        setCurrentBreakfast(dishes);
+      case 'soups':
+        setCurrentSoups(uniqueDishes);
         break;
-      case 'standard':
-        setCurrentStandard(dishes);
+      case 'mains':
+        setCurrentMains(uniqueDishes);
         break;
       case 'weekly':
-        setCurrentWeekly(dishes);
+        setCurrentWeekly(uniqueDishes);
         break;
     }
-  }, [setCurrentBreakfast, setCurrentStandard, setCurrentWeekly]);
+  }, [setCurrentSoups, setCurrentMains, setCurrentWeekly]);
+
+  // Emergency cleanup for stale/corrupted localStorage data
+  useEffect(() => {
+    if (!Array.isArray(currentSoups) || !Array.isArray(currentMains) || !Array.isArray(currentWeekly)) return;
+
+    const filteredSoups = currentSoups.filter(d => d && d.category === 'Polévka');
+    if (filteredSoups.length !== currentSoups.length) {
+      setCurrentSoups(filteredSoups);
+    }
+
+    const filteredMains = currentMains.filter(d => d && d.category === 'Hlavní jídlo');
+    if (filteredMains.length !== currentMains.length) {
+      setCurrentMains(filteredMains);
+    }
+
+    const filteredWeekly = currentWeekly.filter(d => d && d.category === 'Hlavní jídlo');
+    if (filteredWeekly.length !== currentWeekly.length) {
+      setCurrentWeekly(filteredWeekly);
+    }
+  }, [currentSoups, currentMains, currentWeekly, setCurrentSoups, setCurrentMains, setCurrentWeekly]);
+
+
 
   const sortedAllergens = useMemo(() => {
     return [...allergens].sort((a, b) => a.number - b.number);
@@ -112,18 +137,24 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
     if (error) {
       console.error('Error fetching dishes:', error);
     } else {
-      const mappedDishes: Dish[] = (data || []).map(item => ({
-        id: item.id,
-        user_id: item.user_id,
-        title_cz: item.title_cz,
-        title_en: item.title_en || '',
-        price: parseFloat(item.price),
-        category: item.category,
-        allergens: item.allergens || [],
-        created_at: item.created_at,
-        updated_at: item.updated_at,
-      }));
-      setDishes(mappedDishes);
+      const uniqueDishesMap = new Map();
+      (data || []).forEach(item => {
+        if (!uniqueDishesMap.has(item.id)) {
+          uniqueDishesMap.set(item.id, {
+            id: item.id,
+            user_id: item.user_id,
+            title_cz: item.title_cz,
+            title_en: item.title_en || '',
+            price: parseFloat(item.price),
+            category: item.category,
+            allergens: item.allergens || [],
+            created_at: item.created_at,
+            updated_at: item.updated_at,
+          });
+        }
+      });
+      setDishes(Array.from(uniqueDishesMap.values()));
+
     }
 
     // Fetch History
@@ -284,7 +315,7 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
     return dishes.some(dish => dish.allergens.includes(id));
   }, [dishes]);
 
-  const addMenuToHistory = useCallback(async (dishes: Dish[], exportType?: 'pdf' | 'post' | 'web', variant?: MenuVariant) => {
+  const addMenuToHistory = useCallback(async (dishes: Dish[], exportType?: 'pdf' | 'post' | 'web' | 'bulk-pdf', variant?: MenuVariant) => {
     if (!user) return;
 
     const tempId = generateId();
@@ -340,9 +371,9 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
     allergens: sortedAllergens,
     dishes,
     menus: {
-      breakfast: currentBreakfast,
-      standard: currentStandard,
-      weekly: currentWeekly,
+      soups: Array.from(new Map((currentSoups || []).filter(d => d && d.category === 'Polévka').map(d => [d.id, d])).values()).slice(0, 2),
+      mains: Array.from(new Map((currentMains || []).filter(d => d && d.category === 'Hlavní jídlo').map(d => [d.id, d])).values()).slice(0, 5),
+      weekly: Array.from(new Map((currentWeekly || []).filter(d => d && d.category === 'Hlavní jídlo').map(d => [d.id, d])).values()).slice(0, 2),
     },
     menuHistory: sortedMenuHistory,
     isLoading,
@@ -359,8 +390,8 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
   }), [
     sortedAllergens,
     dishes,
-    currentBreakfast,
-    currentStandard,
+    currentSoups,
+    currentMains,
     currentWeekly,
     sortedMenuHistory,
     isLoading,

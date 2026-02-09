@@ -92,8 +92,8 @@ export default function DashboardPage() {
               <div className="space-y-4">
                 <div className="flex flex-col gap-1">
                   <div className="text-2xl font-bold">
-                    {lastExports.pdf.variant === 'breakfast' ? 'Snídaně' :
-                      lastExports.pdf.variant === 'standard' ? 'Jídelní menu' :
+                    {lastExports.pdf.variant === 'soups' ? 'Polévky' :
+                      lastExports.pdf.variant === 'mains' ? 'Hlavní chod' :
                         lastExports.pdf.variant === 'weekly' ? 'Týdenní menu' :
                           'Menu'}
                   </div>
@@ -131,8 +131,8 @@ export default function DashboardPage() {
               <div className="space-y-4">
                 <div className="flex flex-col gap-1">
                   <div className="text-2xl font-bold">
-                    {lastExports.post.variant === 'breakfast' ? 'Snídaně' :
-                      lastExports.post.variant === 'standard' ? 'Jídelní menu' :
+                    {lastExports.post.variant === 'soups' ? 'Polévky' :
+                      lastExports.post.variant === 'mains' ? 'Hlavní chod' :
                         lastExports.post.variant === 'weekly' ? 'Týdenní menu' :
                           'Příspěvek'}
                   </div>
@@ -169,8 +169,8 @@ export default function DashboardPage() {
               <div className="space-y-4">
                 <div className="flex flex-col gap-1">
                   <div className="text-2xl font-bold">
-                    {lastExports.web.variant === 'breakfast' ? 'Snídaně' :
-                      lastExports.web.variant === 'standard' ? 'Jídelní menu' :
+                    {lastExports.web.variant === 'soups' ? 'Polévky' :
+                      lastExports.web.variant === 'mains' ? 'Hlavní chod' :
                         lastExports.web.variant === 'weekly' ? 'Týdenní menu' :
                           'Web export'}
                   </div>

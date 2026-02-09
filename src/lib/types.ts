@@ -23,8 +23,9 @@ export type MenuHistoryItem = {
   id: string;
   date: string; // ISO string
   dishes: Dish[];
-  exportType?: 'pdf' | 'post' | 'web';
+  exportType?: 'pdf' | 'post' | 'web' | 'bulk-pdf';
   variant?: MenuVariant;
 };
 
-export type MenuVariant = 'breakfast' | 'standard' | 'weekly';
+export type MenuVariant = 'soups' | 'mains' | 'weekly';
+

@@ -56,26 +56,41 @@ function JidlaPageContent() {
 
   const [isSheetOpen, setSheetOpen] = useState(false);
   const [editingDish, setEditingDish] = useState<Dish | null>(null);
+  const [initialTab, setInitialTab] = useState<'cz' | 'en'>('cz');
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<FilterType>('vše');
 
-  // Effect to handle opening the sheet from URL query param
+  // Effect to handle opening the sheet from URL query params
   useEffect(() => {
-    if (searchParams.get('action') === 'add') {
+    const action = searchParams.get('action');
+    const id = searchParams.get('id');
+    const tab = searchParams.get('tab') as 'cz' | 'en';
+
+    if (action === 'add') {
       setEditingDish(null);
+      setInitialTab(tab || 'cz');
       setSheetOpen(true);
+    } else if (action === 'edit' && id) {
+      const dishToEdit = dishes.find(d => d.id === id);
+      if (dishToEdit) {
+        setEditingDish(dishToEdit);
+        setInitialTab(tab || 'cz');
+        setSheetOpen(true);
+      }
     }
-  }, [searchParams]);
+  }, [searchParams, dishes]);
 
 
   const handleAddClick = () => {
     setEditingDish(null);
+    setInitialTab('cz');
     setSheetOpen(true);
   };
 
   const handleEdit = (dish: Dish) => {
     setEditingDish(dish);
+    setInitialTab('cz');
     setSheetOpen(true);
   };
 
@@ -205,6 +220,7 @@ function JidlaPageContent() {
         isOpen={isSheetOpen}
         onClose={handleSheetClose}
         dish={editingDish}
+        initialTab={initialTab}
       />
     </div>
   );

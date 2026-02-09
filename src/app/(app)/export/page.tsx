@@ -12,7 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Download, FileText, Globe, Image as ImageIcon, Pilcrow, Loader2, Zap, Layers, Printer, ChevronRight } from 'lucide-react';
+import { Download, FileText, Globe, Image as ImageIcon, Pilcrow, Loader2, Zap, Layers, Printer, ChevronRight, AlertTriangle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useToast } from '@/hooks/use-toast';
@@ -82,11 +82,34 @@ function ExportPageContent() {
     if (!currentMenu) return [];
 
     const limit = MENU_LIMITS[activeTab];
-    const soups = currentMenu.filter(d => d.category === 'Polévka').slice(0, limit.soups);
-    const mains = currentMenu.filter(d => d.category === 'Hlavní jídlo' || d.category === 'Snídaně').slice(0, limit.mains);
+    const soups = (currentMenu as any[]).filter(d => d.category === 'Polévka').slice(0, limit.soups);
+    const mains = (currentMenu as any[]).filter(d => d.category === 'Hlavní jídlo' || d.category === 'Snídaně').slice(0, limit.mains);
 
     return [...soups, ...mains];
   }, [currentMenu, activeTab]);
+
+  const missingTranslations = useMemo(() => {
+    const getMissing = (variant: MenuVariant) => {
+      const menuItems = (menus[variant] || []) as any[];
+      const limit = MENU_LIMITS[variant];
+      const soups = menuItems.filter(d => d.category === 'Polévka').slice(0, limit.soups);
+      const mains = menuItems.filter(d => d.category === 'Hlavní jídlo' || d.category === 'Snídaně').slice(0, limit.mains);
+      return [...soups, ...mains].filter(d => !d.title_en || d.title_en.trim() === '');
+    };
+
+    const soupsMissing = getMissing('soups');
+    const mainsMissing = getMissing('mains');
+    const weeklyMissing = getMissing('weekly');
+
+    return {
+      soups: soupsMissing,
+      mains: mainsMissing,
+      weekly: weeklyMissing,
+      current: activeTab === 'soups' ? soupsMissing : activeTab === 'mains' ? mainsMissing : weeklyMissing,
+      hasAny: soupsMissing.length > 0 || mainsMissing.length > 0 || weeklyMissing.length > 0,
+      hasCurrent: (activeTab === 'soups' ? soupsMissing : activeTab === 'mains' ? mainsMissing : weeklyMissing).length > 0
+    };
+  }, [menus, activeTab]);
 
 
   const handleGenerate = async (type: 'pdf' | 'post' | 'web' | 'bulk-pdf') => {
@@ -491,7 +514,6 @@ function ExportPageContent() {
           >
             Týdenní menu
           </TabsTrigger>
-
         </TabsList>
 
         <div className="flex-1 w-full grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
@@ -534,16 +556,34 @@ function ExportPageContent() {
                           <TableRow key={`${activeTab}-${dish.id}-${index}`}>
                             <TableCell>
                               <div className="font-medium">
-                                {lang === 'cz' ? dish.title_cz : dish.title_en}
+                                {lang === 'cz' ? (
+                                  dish.title_cz
+                                ) : (
+                                  dish.title_en || <span className="text-orange-500 italic opacity-70">(Chybí anglický překlad)</span>
+                                )}
                               </div>
                               <div className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
                                 <span className="text-xs">Alergeny:</span>
-                                <div className="flex gap-1">
-                                  {dish.allergens.map(id => (
-                                    <Badge key={id} variant="secondary" className="px-1 py-0 text-[10px]">
-                                      {getAllergenNumber(id)}
-                                    </Badge>
-                                  ))}
+                                <div className="flex items-center gap-2">
+                                  <div className="flex gap-1">
+                                    {dish.allergens.map((id: string) => (
+                                      <Badge key={id} variant="secondary" className="px-1 py-0 text-[10px]">
+                                        {getAllergenNumber(id)}
+                                      </Badge>
+                                    ))}
+                                  </div>
+
+                                  {(!dish.title_en || dish.title_en.trim() === '') && lang === 'cz' && (
+                                    <Link href={`/jidla?action=edit&id=${dish.id}&tab=en`}>
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[10px] py-0 px-2 h-5 border-orange-200 text-orange-600 bg-orange-50 hover:bg-orange-100 transition-colors cursor-pointer font-bold flex items-center gap-1"
+                                      >
+                                        <AlertTriangle className="h-3 w-3" />
+                                        Chybí EN texty – doplnit
+                                      </Badge>
+                                    </Link>
+                                  )}
                                 </div>
                               </div>
                             </TableCell>
@@ -561,8 +601,6 @@ function ExportPageContent() {
               renderOutput()
             )}
           </div>
-
-
 
           <div className="space-y-6">
             <Card className="glass-card">
@@ -658,12 +696,9 @@ function ExportPageContent() {
               </CardContent>
             </Card>
           </div>
-
-
         </div>
       </Tabs>
     </div>
-
   );
 }
 

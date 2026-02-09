@@ -50,12 +50,20 @@ type DishFormSheetProps = {
   isOpen: boolean;
   onClose: () => void;
   dish: Dish | null;
+  initialTab?: 'cz' | 'en';
 };
 
-export function DishFormSheet({ isOpen, onClose, dish }: DishFormSheetProps) {
+export function DishFormSheet({ isOpen, onClose, dish, initialTab = 'cz' }: DishFormSheetProps) {
   const { addDish, updateDish, allergens } = useGastro();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [tab, setTab] = useState<'cz' | 'en'>(initialTab);
+
+  useEffect(() => {
+    if (isOpen) {
+      setTab(initialTab);
+    }
+  }, [isOpen, initialTab]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -123,7 +131,7 @@ export function DishFormSheet({ isOpen, onClose, dish }: DishFormSheetProps) {
               </SheetDescription>
             </SheetHeader>
             <div className="flex-1 py-6 space-y-6">
-              <Tabs defaultValue="cz">
+              <Tabs value={tab} onValueChange={(v) => setTab(v as 'cz' | 'en')}>
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="cz">Česky</TabsTrigger>
                   <TabsTrigger value="en">English</TabsTrigger>

@@ -257,6 +257,11 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
     // Update local state immediately
     setDishes(prev => prev.map(d => d.id === updatedDish.id ? updatedDish : d));
 
+    // Update menu drafts as well
+    setCurrentSoups(prev => (prev || []).map(d => d.id === updatedDish.id ? updatedDish : d));
+    setCurrentMains(prev => (prev || []).map(d => d.id === updatedDish.id ? updatedDish : d));
+    setCurrentWeekly(prev => (prev || []).map(d => d.id === updatedDish.id ? updatedDish : d));
+
     const { error } = await supabase
       .from('menu_items')
       .update({
@@ -279,9 +284,13 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
   const deleteDish = useCallback(async (id: string) => {
     if (!user) return;
 
-    // We intentionally SKIP optimistic updates (setDishes/setCurrentMenu) here
-    // to prevent React render cycles/freezes that were happening on delete.
-    // The calling component is expected to trigger a reload or refetch.
+    // Remove from local dishes state
+    setDishes(prev => prev.filter(d => d.id !== id));
+
+    // Remove from menu drafts
+    setCurrentSoups(prev => (prev || []).filter(d => d.id !== id));
+    setCurrentMains(prev => (prev || []).filter(d => d.id !== id));
+    setCurrentWeekly(prev => (prev || []).filter(d => d.id !== id));
 
     const { error } = await supabase
       .from('menu_items')
@@ -290,9 +299,10 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
 
     if (error) {
       console.error('Error deleting dish:', error);
+      fetchDishes(); // Rollback
       throw error;
     }
-  }, [user, supabase]);
+  }, [user, supabase, fetchDishes]);
 
   const addAllergen = useCallback((allergen: Omit<Allergen, 'id'>) => {
     setAllergens(prev => [...prev, { ...allergen, id: generateId() }]);
@@ -371,9 +381,9 @@ export const GastroProvider = ({ children }: { children: ReactNode }) => {
     allergens: sortedAllergens,
     dishes,
     menus: {
-      soups: Array.from(new Map((currentSoups || []).filter(d => d && d.category === 'Polévka').map(d => [d.id, d])).values()).slice(0, 2),
-      mains: Array.from(new Map((currentMains || []).filter(d => d && d.category === 'Hlavní jídlo').map(d => [d.id, d])).values()).slice(0, 5),
-      weekly: Array.from(new Map((currentWeekly || []).filter(d => d && d.category === 'Hlavní jídlo').map(d => [d.id, d])).values()).slice(0, 2),
+      soups: (currentSoups || []).map(sd => dishes.find(d => d.id === sd.id) || sd).filter(d => d && d.category === 'Polévka').slice(0, 2),
+      mains: (currentMains || []).map(sd => dishes.find(d => d.id === sd.id) || sd).filter(d => d && (d.category === 'Hlavní jídlo' || d.category === 'Snídaně')).slice(0, 5),
+      weekly: (currentWeekly || []).map(sd => dishes.find(d => d.id === sd.id) || sd).filter(d => d && (d.category === 'Hlavní jídlo' || d.category === 'Snídaně')).slice(0, 2),
     },
     menuHistory: sortedMenuHistory,
     isLoading,

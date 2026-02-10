@@ -16,6 +16,8 @@ import { Download, FileText, Globe, Image as ImageIcon, Pilcrow, Loader2, Zap, L
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useToast } from '@/hooks/use-toast';
+import { DishFormSheet } from '@/components/dishes/dish-form-sheet';
+import type { Dish } from '@/lib/types';
 import {
   Table,
   TableBody,
@@ -58,6 +60,8 @@ function ExportPageContent() {
   const [output, setOutput] = useState<MenuOutput>({ type: null, loading: false, success: false });
   const [generatedPdfImage, setGeneratedPdfImage] = useState<string | null>(null);
   const [bulkPdfImages, setBulkPdfImages] = useState<BulkPdfOutput>({ soups: null, mains: null, weekly: null });
+  const [editingDish, setEditingDish] = useState<Dish | null>(null);
+  const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
   const [bulkViewIndex, setBulkViewIndex] = useState(0);
   const [isPreviewVisible, setIsPreviewVisible] = useState(true);
   const [hasMounted, setHasMounted] = useState(false);
@@ -574,15 +578,17 @@ function ExportPageContent() {
                                   </div>
 
                                   {(!dish.title_en || dish.title_en.trim() === '') && lang === 'cz' && (
-                                    <Link href={`/jidla?action=edit&id=${dish.id}&tab=en`}>
-                                      <Badge
-                                        variant="outline"
-                                        className="text-[10px] py-0 px-2 h-5 border-orange-200 text-orange-600 bg-orange-50 hover:bg-orange-100 transition-colors cursor-pointer font-bold flex items-center gap-1"
-                                      >
-                                        <AlertTriangle className="h-3 w-3" />
-                                        Chybí EN texty – doplnit
-                                      </Badge>
-                                    </Link>
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[10px] py-0 px-2 h-5 border-orange-200 text-orange-600 bg-orange-50 hover:bg-orange-100 transition-colors cursor-pointer font-bold flex items-center gap-1"
+                                      onClick={() => {
+                                        setEditingDish(dish);
+                                        setIsEditSheetOpen(true);
+                                      }}
+                                    >
+                                      <AlertTriangle className="h-3 w-3" />
+                                      Chybí EN texty – doplnit
+                                    </Badge>
                                   )}
                                 </div>
                               </div>
@@ -698,6 +704,16 @@ function ExportPageContent() {
           </div>
         </div>
       </Tabs>
+
+      <DishFormSheet
+        isOpen={isEditSheetOpen}
+        onClose={() => {
+          setIsEditSheetOpen(false);
+          setEditingDish(null);
+        }}
+        dish={editingDish}
+        initialTab="en"
+      />
     </div>
   );
 }

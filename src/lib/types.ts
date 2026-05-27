@@ -29,3 +29,11 @@ export type MenuHistoryItem = {
 
 export type MenuVariant = 'soups' | 'mains' | 'weekly';
 
+export type PdfTemplate = {
+  variant: MenuVariant;
+  fileName: string;
+  publicUrl: string;
+  uploadedAt: string;
+};
+
+

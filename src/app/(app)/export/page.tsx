@@ -12,11 +12,13 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Download, FileText, Globe, Image as ImageIcon, Pilcrow, Loader2, Zap, Layers, Printer, ChevronRight, AlertTriangle } from 'lucide-react';
+import { Download, FileText, Globe, Image as ImageIcon, Pilcrow, Loader2, Zap, Layers, Printer, ChevronRight, AlertTriangle, FileWarning, Settings, Cloud } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useToast } from '@/hooks/use-toast';
 import { DishFormSheet } from '@/components/dishes/dish-form-sheet';
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import type { Dish } from '@/lib/types';
 import {
   Table,
@@ -40,6 +42,10 @@ type BulkPdfOutput = {
   weekly: string | null;
 };
 
+type PdfSource = 'placid' | 'custom';
+type PdfKind = 'image' | 'pdf';
+const PDF_TEMPLATES_BUCKET = 'menu-templates';
+
 
 const MENU_LIMITS: Record<MenuVariant, { soups: number; mains: number }> = {
   soups: { soups: 2, mains: 0 },
@@ -50,6 +56,7 @@ const MENU_LIMITS: Record<MenuVariant, { soups: number; mains: number }> = {
 
 function ExportPageContent() {
   const { menus, addMenuToHistory, allergens } = useGastro();
+  const { user } = useAuth();
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const initialTab = (searchParams.get('tab') as MenuVariant) || 'weekly';
@@ -59,17 +66,110 @@ function ExportPageContent() {
   const [exportMode, setExportMode] = useState<'single' | 'bulk'>('single');
   const [output, setOutput] = useState<MenuOutput>({ type: null, loading: false, success: false });
   const [generatedPdfImage, setGeneratedPdfImage] = useState<string | null>(null);
+  const [generatedPdfKind, setGeneratedPdfKind] = useState<PdfKind>('image');
   const [bulkPdfImages, setBulkPdfImages] = useState<BulkPdfOutput>({ soups: null, mains: null, weekly: null });
+  const [bulkPdfKind, setBulkPdfKind] = useState<PdfKind>('image');
   const [editingDish, setEditingDish] = useState<Dish | null>(null);
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
   const [bulkViewIndex, setBulkViewIndex] = useState(0);
   const [isPreviewVisible, setIsPreviewVisible] = useState(true);
   const [hasMounted, setHasMounted] = useState(false);
+  const [pdfSource, setPdfSource] = useState<PdfSource>('placid');
 
 
   useEffect(() => {
     setHasMounted(true);
+    try {
+      const stored = window.localStorage.getItem('pdfSource');
+      if (stored === 'placid' || stored === 'custom') setPdfSource(stored);
+    } catch { /* ignore */ }
   }, []);
+
+  useEffect(() => {
+    if (!hasMounted) return;
+    try { window.localStorage.setItem('pdfSource', pdfSource); } catch { /* ignore */ }
+  }, [pdfSource, hasMounted]);
+
+  const getTemplateUrl = (variant: MenuVariant): string | null => {
+    if (!user) return null;
+    const supabase = createClient();
+    const { data } = supabase.storage
+      .from(PDF_TEMPLATES_BUCKET)
+      .getPublicUrl(`${user.id}/${variant}.pdf`);
+    return data?.publicUrl ?? null;
+  };
+
+  const buildFieldsForVariant = (variant: MenuVariant): Record<string, string> => {
+    const menuItems = menus[variant] || [];
+    const limit = MENU_LIMITS[variant];
+    const sorted = [...menuItems].sort((a, b) => {
+      if (a.category === 'Polévka' && b.category !== 'Polévka') return -1;
+      if (a.category !== 'Polévka' && b.category === 'Polévka') return 1;
+      return 0;
+    });
+    const mSoups = sorted.filter(d => d.category === 'Polévka').slice(0, limit.soups);
+    const mMains = sorted.filter(d => d.category === 'Hlavní jídlo' || d.category === 'Snídaně').slice(0, limit.mains);
+
+    const allergenNumbers = (ids: string[]) =>
+      ids.map(id => {
+        const a = allergens.find(x => x.id === id);
+        return a ? a.number : id;
+      }).join(', ');
+
+    const fields: Record<string, string> = {};
+    mSoups.forEach((dish, idx) => {
+      const i = idx + 1;
+      fields[`soup${i}_cz`] = dish.title_cz || '';
+      fields[`soup${i}_en`] = dish.title_en || '';
+      fields[`soup${i}_price`] = `${dish.price}`;
+      fields[`soup${i}_allergens`] = allergenNumbers(dish.allergens);
+    });
+    mMains.forEach((dish, idx) => {
+      const i = idx + 1;
+      fields[`main${i}_cz`] = dish.title_cz || '';
+      fields[`main${i}_en`] = dish.title_en || '';
+      fields[`main${i}_price`] = `${dish.price}`;
+      fields[`main${i}_allergens`] = allergenNumbers(dish.allergens);
+    });
+    return fields;
+  };
+
+  const fetchCustomPdfUrl = async (variant: MenuVariant): Promise<string> => {
+    const templateUrl = getTemplateUrl(variant);
+    if (!templateUrl) throw new Error(`Šablona pro "${variant}" není nahrána. Nahrajte ji v Nastavení.`);
+
+    const fields = buildFieldsForVariant(variant);
+    console.log('[fill-pdf client] variant=', variant, 'templateUrl=', templateUrl, 'fields=', fields);
+
+    const resp = await fetch('/api/fill-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        templateUrl,
+        fields,
+        filename: `menu-${variant}.pdf`,
+      }),
+    });
+
+    if (!resp.ok) {
+      const ct = resp.headers.get('content-type') || '';
+      let detail = '';
+      if (ct.includes('application/json')) {
+        try {
+          const j = await resp.json();
+          console.error('[fill-pdf client] server error JSON:', j);
+          detail = j.message || JSON.stringify(j);
+        } catch { /* ignore */ }
+      } else {
+        detail = await resp.text().catch(() => '');
+        console.error('[fill-pdf client] server error text:', detail);
+      }
+      throw new Error(detail || `${variant}: Chyba ${resp.status} ${resp.statusText}`);
+    }
+
+    const blob = await resp.blob();
+    return URL.createObjectURL(blob);
+  };
 
   // Reset output when switching tabs
   useEffect(() => {
@@ -170,22 +270,28 @@ function ExportPageContent() {
 
     if (type === 'pdf' || type === 'bulk-pdf') {
       try {
-        const fetchPdf = async (variant: MenuVariant) => {
+        const fetchViaPlacid = async (variant: MenuVariant) => {
           const params = constructParams(variant);
           const response = await fetch(`/api/export-menu?${params.toString()}`);
           if (!response.ok) throw new Error(`Chyba u ${variant}: ${response.statusText}`);
           const data = await response.json();
-          return data.imageUrl;
+          return data.imageUrl as string;
         };
+
+        const fetchOne = (variant: MenuVariant) =>
+          pdfSource === 'custom' ? fetchCustomPdfUrl(variant) : fetchViaPlacid(variant);
+
+        const kind: PdfKind = pdfSource === 'custom' ? 'pdf' : 'image';
 
         if (exportMode === 'bulk') {
           setOutput({ type: 'bulk-pdf', loading: true, success: false });
           const [soupsImg, mainsImg, weeklyImg] = await Promise.all([
-            fetchPdf('soups'),
-            fetchPdf('mains'),
-            fetchPdf('weekly')
+            fetchOne('soups'),
+            fetchOne('mains'),
+            fetchOne('weekly')
           ]);
           setBulkPdfImages({ soups: soupsImg, mains: mainsImg, weekly: weeklyImg });
+          setBulkPdfKind(kind);
           setBulkViewIndex(0);
           setOutput({ type: 'bulk-pdf', loading: false, success: true });
 
@@ -199,8 +305,9 @@ function ExportPageContent() {
 
           toast({ title: "Hromadný export dokončen", description: "Všechy 3 lístky byly vygenerovány." });
         } else {
-          const img = await fetchPdf(activeTab);
+          const img = await fetchOne(activeTab);
           setGeneratedPdfImage(img);
+          setGeneratedPdfKind(kind);
           setOutput({ type: 'pdf', loading: false, success: true });
           onGenerationSuccess();
           toast({ title: "Úspěšně vygenerováno", description: "Menu pro tisk bylo vygenerováno." });
@@ -305,13 +412,15 @@ function ExportPageContent() {
     }
   }
 
-  const handleDownload = (imgUrl?: string, filename: string = 'menu.png') => {
+  const handleDownload = (imgUrl?: string, filename?: string) => {
     const url = imgUrl || generatedPdfImage;
     if (!url) return;
+    const ext = (imgUrl ? bulkPdfKind : generatedPdfKind) === 'pdf' ? 'pdf' : 'png';
+    const finalName = filename || `menu.${ext}`;
     try {
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', filename);
+      link.setAttribute('download', finalName);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -321,12 +430,13 @@ function ExportPageContent() {
   };
 
   const handleDownloadAll = () => {
-    if (bulkPdfImages.soups) handleDownload(bulkPdfImages.soups, 'polevky.png');
+    const ext = bulkPdfKind === 'pdf' ? 'pdf' : 'png';
+    if (bulkPdfImages.soups) handleDownload(bulkPdfImages.soups, `polevky.${ext}`);
     setTimeout(() => {
-      if (bulkPdfImages.mains) handleDownload(bulkPdfImages.mains, 'hlavni_chod.png');
+      if (bulkPdfImages.mains) handleDownload(bulkPdfImages.mains, `hlavni_chod.${ext}`);
     }, 200);
     setTimeout(() => {
-      if (bulkPdfImages.weekly) handleDownload(bulkPdfImages.weekly, 'tydenni_menu.png');
+      if (bulkPdfImages.weekly) handleDownload(bulkPdfImages.weekly, `tydenni_menu.${ext}`);
     }, 400);
   };
 
@@ -362,11 +472,21 @@ function ExportPageContent() {
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                   <CardTitle>Náhled pro tisk</CardTitle>
                   <Button onClick={() => handleDownload()} size="sm">
-                    <Download className="mr-2 h-4 w-4" /> Stáhnout obrázek
+                    <Download className="mr-2 h-4 w-4" />
+                    {generatedPdfKind === 'pdf' ? 'Stáhnout PDF' : 'Stáhnout obrázek'}
                   </Button>
                 </CardHeader>
                 <CardContent>
-                  <Image src={generatedPdfImage} alt="Vygenerované menu" width={800} height={1128} className="rounded-lg border shadow-md w-full h-auto" />
+                  {generatedPdfKind === 'pdf' ? (
+                    <iframe
+                      src={generatedPdfImage}
+                      title="Vygenerované menu (PDF)"
+                      className="rounded-lg border shadow-md w-full"
+                      style={{ height: '80vh' }}
+                    />
+                  ) : (
+                    <Image src={generatedPdfImage} alt="Vygenerované menu" width={800} height={1128} className="rounded-lg border shadow-md w-full h-auto" />
+                  )}
                 </CardContent>
               </Card>
             );
@@ -395,13 +515,22 @@ function ExportPageContent() {
               <CardContent className="pt-6">
                 <div className="relative group">
                   {currentItem?.img && (
-                    <Image
-                      src={currentItem.img}
-                      alt={currentItem.label}
-                      width={800}
-                      height={1128}
-                      className="rounded-lg border shadow-xl w-full h-auto transition-all duration-300"
-                    />
+                    bulkPdfKind === 'pdf' ? (
+                      <iframe
+                        src={currentItem.img}
+                        title={currentItem.label}
+                        className="rounded-lg border shadow-xl w-full transition-all duration-300"
+                        style={{ height: '80vh' }}
+                      />
+                    ) : (
+                      <Image
+                        src={currentItem.img}
+                        alt={currentItem.label}
+                        width={800}
+                        height={1128}
+                        className="rounded-lg border shadow-xl w-full h-auto transition-all duration-300"
+                      />
+                    )
                   )}
 
                   {/* Carousel Controls */}
@@ -615,6 +744,42 @@ function ExportPageContent() {
                 <CardDescription>Vytvořte z menu podklady</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
+                {/* PDF Source Switcher */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">Zdroj PDF</Label>
+                    <Link href="/nastaveni" className="text-xs text-primary hover:underline flex items-center gap-1">
+                      <Settings className="h-3 w-3" /> Šablony
+                    </Link>
+                  </div>
+                  <div className="bg-slate-200/50 p-1 rounded-xl flex gap-1 border border-slate-300/50">
+                    <button
+                      onClick={() => setPdfSource('placid')}
+                      className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all duration-200 flex items-center justify-center gap-1.5 ${pdfSource === 'placid'
+                        ? 'bg-primary text-white shadow'
+                        : 'text-slate-500 hover:text-slate-700 hover:bg-white/30'
+                        }`}
+                    >
+                      <Cloud className="h-3.5 w-3.5" /> Placid (n8n)
+                    </button>
+                    <button
+                      onClick={() => setPdfSource('custom')}
+                      className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all duration-200 flex items-center justify-center gap-1.5 ${pdfSource === 'custom'
+                        ? 'bg-primary text-white shadow'
+                        : 'text-slate-500 hover:text-slate-700 hover:bg-white/30'
+                        }`}
+                    >
+                      <FileText className="h-3.5 w-3.5" /> Vlastní PDF
+                    </button>
+                  </div>
+                  {pdfSource === 'custom' && (
+                    <p className="text-[11px] text-muted-foreground mt-2 leading-snug">
+                      Vyplní vaši PDF šablonu (AcroForm pole) přímo v appce. Nahrát šablony můžete v{' '}
+                      <Link href="/nastaveni" className="text-primary hover:underline">Nastavení</Link>.
+                    </p>
+                  )}
+                </div>
+
                 {/* Mode Switcher */}
                 <div className="bg-slate-200/50 p-1 rounded-xl flex gap-1 border border-slate-300/50 mb-3">
                   <button

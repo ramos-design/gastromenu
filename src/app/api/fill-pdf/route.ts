@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { PDFDocument, PDFFont } from 'pdf-lib';
+import { PDFDocument, PDFFont, TextAlignment } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 
 export const runtime = 'nodejs';
@@ -22,10 +22,38 @@ async function loadFontBytes(kind: keyof typeof FONT_FILES): Promise<Buffer> {
   return bytes;
 }
 
-// Pravidlo: názvy jídel (_cz, _en) → display font (Calistoga), zbytek → body font (Inter).
+// Pravidlo: názvy jídel (_cz, _en) i ceny (_price) → display font (Calistoga), zbytek → body font (Inter).
 function pickFontForField(fieldName: string, fonts: { body: PDFFont; display: PDFFont }): PDFFont {
-  if (/_(cz|en)$/i.test(fieldName)) return fonts.display;
+  if (/_(cz|en|price)$/i.test(fieldName)) return fonts.display;
   return fonts.body;
+}
+
+// Pevná velikost fontu podle typu pole (shodná s návrhem šablony Polévky), aby texty byly
+// konzistentní napříč šablonami a nedocházelo k auto-size nafouknutí / ořezu.
+function pickFontSizeForField(fieldName: string): number {
+  if (/_price$/i.test(fieldName)) return 12;
+  if (/_allergens$/i.test(fieldName)) return 7;
+  if (/_(cz|en)$/i.test(fieldName)) return 11;
+  return 11;
+}
+
+// O kolik PDF bodů posunout cenové pole doleva, aby cena nekončila úplně u kraje stránky,
+// ale srovnala se zhruba s koncem horní oddělovací čáry. Pole se posune CELÉ (šířka zůstává),
+// takže se "Kč" neořízne.
+const PRICE_LEFT_SHIFT = 18;
+
+// O kolik zvětšit pole názvu jídla dolů, aby se dlouhý název zalomil na 2. řádek místo ořezu.
+const NAME_FIELD_EXTRA = 24;
+// O kolik posunout pole alergenů dolů, ať skončí pod (případně 2řádkovým) názvem a nepřekryje se.
+const ALLERGEN_DOWN_SHIFT = 20;
+
+// Cenová pole vždy zakončit " Kč" (pokud tam měna ještě není a hodnota není prázdná).
+function formatFieldValue(fieldName: string, value: string): string {
+  if (!/_price$/i.test(fieldName)) return value;
+  const trimmed = value.trim();
+  if (trimmed === '') return trimmed;
+  if (/kč/i.test(trimmed)) return trimmed;
+  return `${trimmed} Kč`;
 }
 
 type FillPdfBody = {
@@ -140,6 +168,63 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // --- Dynamické svislé rozložení pro šablonu Hlavní chod ---
+    // Šablona má pevných 5 slotů (main1..main5). Když je vyplněno méně jídel,
+    // přepozicujeme JEN vyplněné sloty tak, aby se rovnoměrně rozprostřely přes
+    // celou plochu (nezůstane prázdné místo dole). Týká se pouze šablon s ≥3 sloty
+    // "mainN_" (Hlavní chod). Týdenní menu (jen main1/main2) zůstává beze změny.
+    // Pozice se mění PŘED vyplněním, takže navazující posuny (název/cena/alergeny)
+    // se počítají už z nových souřadnic.
+    try {
+      const mainSlotIdx = (n: string) => {
+        const m = /^main(\d+)_cz$/i.exec(n);
+        return m ? parseInt(m[1], 10) : 0;
+      };
+      const slots = Array.from(fieldNames).map(mainSlotIdx).filter(i => i > 0);
+      const maxSlot = slots.length ? Math.max(...slots) : 0;
+      if (maxSlot >= 3) {
+        // Export plní jídla souvisle od main1; počet = poslední vyplněný název.
+        let filledCount = 0;
+        for (let i = 1; i <= maxSlot; i++) {
+          const v = fields[`main${i}_cz`];
+          if (v != null && String(v).trim() !== '') filledCount = i;
+        }
+        if (filledCount >= 1) {
+          // Geometrie plochy Hlavního chodu (mezi hlavičkovou a patičkovou čarou).
+          const Y_TOP = 450, Y_BOT = 118, CENTER = (Y_TOP + Y_BOT) / 2, MAX_PITCH = 120;
+          const rowsFor = (count: number): number[] => {
+            if (count <= 1) return [CENTER];
+            const pitch = Math.min(MAX_PITCH, (Y_TOP - Y_BOT) / (count - 1));
+            const total = pitch * (count - 1);
+            const top = CENTER + total / 2;
+            return Array.from({ length: count }, (_, k) => top - k * pitch);
+          };
+          const rows = rowsFor(filledCount);
+          for (let i = 1; i <= filledCount; i++) {
+            let baseYcz: number | null = null;
+            try {
+              baseYcz = form.getTextField(`main${i}_cz`).acroField.getWidgets()[0]?.getRectangle().y ?? null;
+            } catch { /* pole chybí */ }
+            if (baseYcz == null) continue;
+            const dy = rows[i - 1] - baseYcz;
+            if (Math.abs(dy) < 0.01) continue;
+            // Posuň CELÝ řádek (název CZ/EN, cena, alergeny — i jejich druhé widgety) o dy.
+            for (const suffix of ['cz', 'en', 'price', 'allergens']) {
+              let f: ReturnType<typeof form.getTextField>;
+              try { f = form.getTextField(`main${i}_${suffix}`); } catch { continue; }
+              for (const w of f.acroField.getWidgets()) {
+                const r = w.getRectangle();
+                w.setRectangle({ x: r.x, y: r.y + dy, width: r.width, height: r.height });
+              }
+            }
+          }
+          console.log('[fill-pdf] dynamic mains layout — filled', filledCount, 'rows', rows.map(r => Math.round(r)));
+        }
+      }
+    } catch (e) {
+      console.warn('[fill-pdf] dynamic mains layout failed', e);
+    }
+
     const unknownFields: string[] = [];
     const filledFields: string[] = [];
 
@@ -148,11 +233,71 @@ export async function POST(request: NextRequest) {
         unknownFields.push(name);
         continue;
       }
-      const value = rawValue == null ? '' : String(rawValue);
+      const value = formatFieldValue(name, rawValue == null ? '' : String(rawValue));
+      // Prázdná hodnota → nevyplňovat; pole se níže přemaskuje bílým obdélníkem
+      // (jinak by prosvítal placeholder zapečený v obsahu šablony).
+      if (value.trim() === '') continue;
       const fontForField = pickFontForField(name, fonts);
       try {
         const tf = form.getTextField(name);
         tf.setText(value);
+        // Ceny zarovnat doprava a posunout celé pole doleva (šířka zůstává, "Kč" se neořízne).
+        if (/_price$/i.test(name)) {
+          try {
+            tf.setAlignment(TextAlignment.Right);
+            for (const widget of tf.acroField.getWidgets()) {
+              const rect = widget.getRectangle();
+              widget.setRectangle({
+                x: rect.x - PRICE_LEFT_SHIFT,
+                y: rect.y,
+                width: rect.width,
+                height: rect.height,
+              });
+            }
+          } catch (e) {
+            console.warn(`[fill-pdf] price alignment on "${name}" failed`, e);
+          }
+        }
+        // Názvy jídel: povolit víceřádkový text a zvětšit pole dolů, aby se dlouhý název
+        // zalomil na další řádek místo ořezu na konci.
+        if (/_(cz|en)$/i.test(name)) {
+          try {
+            tf.enableMultiline();
+            for (const widget of tf.acroField.getWidgets()) {
+              const rect = widget.getRectangle();
+              widget.setRectangle({
+                x: rect.x,
+                y: rect.y - NAME_FIELD_EXTRA,
+                width: rect.width,
+                height: rect.height + NAME_FIELD_EXTRA,
+              });
+            }
+          } catch (e) {
+            console.warn(`[fill-pdf] multiline on "${name}" failed`, e);
+          }
+        }
+        // Alergeny posunout dolů, ať skončí pod (případně 2řádkovým) názvem a nepřekryjí se.
+        if (/_allergens$/i.test(name)) {
+          try {
+            for (const widget of tf.acroField.getWidgets()) {
+              const rect = widget.getRectangle();
+              widget.setRectangle({
+                x: rect.x,
+                y: rect.y - ALLERGEN_DOWN_SHIFT,
+                width: rect.width,
+                height: rect.height,
+              });
+            }
+          } catch (e) {
+            console.warn(`[fill-pdf] allergen shift on "${name}" failed`, e);
+          }
+        }
+        // Pevná velikost fontu (shodná napříč šablonami), ať se text nenafoukne auto-sizem.
+        try {
+          tf.setFontSize(pickFontSizeForField(name));
+        } catch (e) {
+          console.warn(`[fill-pdf] setFontSize on "${name}" failed`, e);
+        }
         // Per-field font + regenerace appearance streamu (Calistoga pro názvy, Inter pro zbytek).
         try {
           tf.updateAppearances(fontForField);
@@ -166,6 +311,38 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('[fill-pdf] filled', filledFields.length, '/ unknown in template:', unknownFields);
+
+    // Prázdná datová pole (alergeny / soupN_ / mainN_) odsunout MIMO stránku ještě
+    // PŘED flatten. Důvod: flatten zploští i prázdné pole a jeho appearance (bílé
+    // pozadí pole) přitom překreslí obsah, který do jeho obdélníku zasahuje — typicky
+    // spodní řádek víceřádkového názvu nad polem alergenů. Posun mimo stránku zařídí,
+    // že se prázdné pole zploští "do prázdna" a nic nepřekreslí.
+    // (Šablony jsou čisté, bez zapečených placeholderů, takže není co maskovat.)
+    const filledSet = new Set(filledFields);
+    const isDataField = (n: string) => /allerg/i.test(n) || /^(soup|main)\d+_/i.test(n);
+    const movedFields: string[] = [];
+    for (const field of formFields) {
+      const name = field.getName();
+      if (filledSet.has(name) || !isDataField(name)) continue;
+      try {
+        // hodnotu taky vyprázdnit (kdyby flatten selhal a pole zůstalo interaktivní)
+        try {
+          form.getTextField(name).setText('');
+        } catch {
+          /* není textové pole */
+        }
+        for (const widget of field.acroField.getWidgets()) {
+          const r = widget.getRectangle();
+          widget.setRectangle({ x: -10000, y: -10000, width: r.width, height: r.height });
+        }
+        movedFields.push(name);
+      } catch (e) {
+        console.warn(`[fill-pdf] moving empty field "${name}" off-page failed`, e);
+      }
+    }
+    if (movedFields.length) {
+      console.log('[fill-pdf] moved empty data fields off-page:', movedFields);
+    }
 
     // Bezpečnostní síť — pokud zůstala pole bez aktualizace, dorenderujeme je body fontem.
     try {

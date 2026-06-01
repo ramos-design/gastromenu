@@ -67,7 +67,7 @@ Reakce: rozdělil jsem fonty per-field (Calistoga pro názvy, Inter pro čísla)
 
 ### Supabase Storage struktura
 - Bucket: `menu-templates` (public)
-- Cesta: `{user.id}/{variant}.pdf` (např. `6d03162a-adf1-4b83-b9fb-c4502762a001/weekly.pdf`)
+- Cesta: `{user.id}/{variant}.pdf` (např. `6d0316a2-adf1-4b83-b9fb-c4502762a001/weekly.pdf`)
 - RLS policy: `Authenticated can manage menu-templates` — `FOR ALL TO authenticated USING/WITH CHECK (bucket_id = 'menu-templates')`
   - Pozn: per-user izolace je vypnutá (zjednodušeno po RLS chybách); pro produkci přidat zpět `(storage.foldername(name))[1] = auth.uid()::text`
 

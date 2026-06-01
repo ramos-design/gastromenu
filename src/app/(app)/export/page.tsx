@@ -96,7 +96,12 @@ function ExportPageContent() {
     const { data } = supabase.storage
       .from(PDF_TEMPLATES_BUCKET)
       .getPublicUrl(`${user.id}/${variant}.pdf`);
-    return data?.publicUrl ?? null;
+    if (!data?.publicUrl) return null;
+    // Cache-buster: po nahrazení šablony může Cloudflare/Supabase CDN ještě chvíli
+    // servírovat starou verzi (i serverovému fetchi v /api/fill-pdf). Unikátní query
+    // param vynutí stažení aktuálního souboru.
+    const bust = `${Date.now()}`;
+    return `${data.publicUrl}${data.publicUrl.includes('?') ? '&' : '?'}t=${bust}`;
   };
 
   const buildFieldsForVariant = (variant: MenuVariant): Record<string, string> => {

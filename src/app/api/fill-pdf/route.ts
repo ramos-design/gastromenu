@@ -37,9 +37,11 @@ function pickFontSizeForField(fieldName: string): number {
   return 11;
 }
 
-// O kolik PDF bodů posunout cenové pole doleva, aby cena nekončila úplně u kraje stránky,
-// ale srovnala se zhruba s koncem horní oddělovací čáry. Pole se posune CELÉ (šířka zůstává),
-// takže se "Kč" neořízne.
+// O kolik PDF bodů posunout cenu doleva, aby nekončila úplně u kraje stránky, ale srovnala
+// se zhruba s koncem horní oddělovací čáry. POZOR: cena je zarovnaná doprava, proto neposouváme
+// celé pole (to by posunulo i LEVOU hranu do pole názvu a jeho neprůhledné pozadí by ořízlo
+// konec dlouhých názvů). Místo toho jen ZÚŽÍME pole zprava (posuneme pravou hranu doleva),
+// levá hrana zůstává → pole názvu se nikdy nepřekryje. Text ceny skončí na stejném místě.
 const PRICE_LEFT_SHIFT = 18;
 
 // O kolik zvětšit pole názvu jídla dolů, aby se dlouhý název zalomil na 2. řádek místo ořezu.
@@ -64,6 +66,19 @@ const FOOTER_NOTE_RIGHT_FRAC = 0.75;
 const FOOTER_NOTE_WEEKLY_Y = 210;
 // Hlavní chod (5 jídel) → dole nad spodní oddělovací čarou.
 const FOOTER_NOTE_MAIN_Y = 96;
+
+// --- Řádka "Týdenní menu podáváme od 11-15 hodin" (jen šablona Týdenní menu) ---
+// V šabloně je tato řádka zapečená do grafiky a VLEVO zarovnaná v každé půlce.
+// Uživatel ji chce vystředěnou v každé půlce a STEJNÝM fontem i velikostí jako poznámku
+// o vodě nad ní. Zapečený text nejde editovat, proto ho zakryjeme bílým pruhem a vykreslíme
+// znovu na střed přesně stejným stylem jako poznámku o vodě (bodyFont, FOOTER_NOTE_SIZE, šedá).
+// Souřadnice (PDF body) jsou naměřené z nahrané weekly.pdf (842×595; spodní čára ~y176,
+// poznámka o vodě ~y210) — při výměně šablony za jinak řešenou je nutné je přeměřit.
+const SERVE_NOTE_TEXT_CZ = 'Týdenní menu podáváme od 11-15 hodin';
+const SERVE_NOTE_TEXT_EN = 'The weekly menu is available from 11:00 to 15:00';
+const SERVE_NOTE_Y = 187; // účaří vystředěného textu (nad spodní oddělovací čarou)
+const SERVE_NOTE_MASK_Y = 181; // spodní hrana bílého maskovacího pruhu (nad čarou ~176)
+const SERVE_NOTE_MASK_H = 20; // výška pruhu — kryje původní (větší) text do ~y201
 
 // Cenová pole vždy zakončit " Kč" (pokud tam měna ještě není a hodnota není prázdná).
 function formatFieldValue(fieldName: string, value: string): string {
@@ -208,14 +223,17 @@ export async function POST(request: NextRequest) {
           if (v != null && String(v).trim() !== '') filledCount = i;
         }
         if (filledCount >= 1) {
-          // Geometrie plochy Hlavního chodu (mezi hlavičkovou a patičkovou čarou).
-          const Y_TOP = 450, Y_BOT = 118, CENTER = (Y_TOP + Y_BOT) / 2, MAX_PITCH = 120;
+          // Geometrie plochy Hlavního chodu. Jídla kotvíme OD HORNÍHO okraje (Y_TOP, hned
+          // pod hlavičkou) a rozteč zastropujeme (MAX_PITCH), aby se 5 jídel netlačilo až
+          // k patičkové čáře a poznámce o vodě. Y_BOT_LIMIT = nejnižší přípustná pozice
+          // posledního jídla (nad patičkou) — drží spodní jídlo bezpečně nad čarou.
+          const Y_TOP = 450, Y_BOT_LIMIT = 180, MAX_PITCH = 78;
           const rowsFor = (count: number): number[] => {
-            if (count <= 1) return [CENTER];
-            const pitch = Math.min(MAX_PITCH, (Y_TOP - Y_BOT) / (count - 1));
-            const total = pitch * (count - 1);
-            const top = CENTER + total / 2;
-            return Array.from({ length: count }, (_, k) => top - k * pitch);
+            if (count <= 1) return [Y_TOP];
+            // Rozteč: vejít se mezi Y_TOP a Y_BOT_LIMIT, ale nikdy víc než MAX_PITCH.
+            // Málo jídel → větší (ale ne přehnané) mezery; 5 jídel → kompaktnější rozložení.
+            const pitch = Math.min(MAX_PITCH, (Y_TOP - Y_BOT_LIMIT) / (count - 1));
+            return Array.from({ length: count }, (_, k) => Y_TOP - k * pitch);
           };
           const rows = rowsFor(filledCount);
           for (let i = 1; i <= filledCount; i++) {
@@ -259,16 +277,17 @@ export async function POST(request: NextRequest) {
       try {
         const tf = form.getTextField(name);
         tf.setText(value);
-        // Ceny zarovnat doprava a posunout celé pole doleva (šířka zůstává, "Kč" se neořízne).
+        // Cenu zarovnat doprava a posunout doleva ZÚŽENÍM pole zprava (levá hrana zůstává,
+        // aby pole ceny nepřekrylo a neořízlo konec dlouhých názvů — viz PRICE_LEFT_SHIFT).
         if (/_price$/i.test(name)) {
           try {
             tf.setAlignment(TextAlignment.Right);
             for (const widget of tf.acroField.getWidgets()) {
               const rect = widget.getRectangle();
               widget.setRectangle({
-                x: rect.x - PRICE_LEFT_SHIFT,
+                x: rect.x,
                 y: rect.y,
-                width: rect.width,
+                width: Math.max(20, rect.width - PRICE_LEFT_SHIFT),
                 height: rect.height,
               });
             }
@@ -394,11 +413,13 @@ export async function POST(request: NextRequest) {
         const page = pdfDoc.getPage(0);
         const { width } = page.getSize();
         // Vykreslí text vystředěný kolem zadaného vodorovného podílu šířky stránky.
-        const drawCentered = (text: string, frac: number) => {
+        // y lze přepsat (výchozí = noteY) — využívá i řádka o čase níže, aby měla
+        // identický font, velikost i barvu jako poznámka o vodě.
+        const drawCentered = (text: string, frac: number, y: number = noteY) => {
           const tw = bodyFont.widthOfTextAtSize(text, FOOTER_NOTE_SIZE);
           page.drawText(text, {
             x: Math.max(0, width * frac - tw / 2),
-            y: noteY,
+            y,
             size: FOOTER_NOTE_SIZE,
             font: bodyFont,
             color: rgb(0.25, 0.25, 0.25),
@@ -406,6 +427,16 @@ export async function POST(request: NextRequest) {
         };
         drawCentered(FOOTER_NOTE_TEXT_CZ, FOOTER_NOTE_LEFT_FRAC); // levý (CZ) sloupec
         drawCentered(FOOTER_NOTE_TEXT_EN, FOOTER_NOTE_RIGHT_FRAC); // pravý (EN) sloupec
+
+        // Týdenní menu: zapečenou (vlevo zarovnanou) řádku "podáváme od 11-15 hodin"
+        // přemažeme bílým pruhem a vykreslíme znovu vystředěnou v každé půlce — stejným
+        // fontem, velikostí i barvou jako poznámku o vodě. (Hlavní chod tuto řádku nemá.)
+        if (isWeekly) {
+          page.drawRectangle({ x: 18, y: SERVE_NOTE_MASK_Y, width: 388, height: SERVE_NOTE_MASK_H, color: rgb(1, 1, 1) });
+          page.drawRectangle({ x: 436, y: SERVE_NOTE_MASK_Y, width: 388, height: SERVE_NOTE_MASK_H, color: rgb(1, 1, 1) });
+          drawCentered(SERVE_NOTE_TEXT_CZ, FOOTER_NOTE_LEFT_FRAC, SERVE_NOTE_Y); // levý (CZ) sloupec
+          drawCentered(SERVE_NOTE_TEXT_EN, FOOTER_NOTE_RIGHT_FRAC, SERVE_NOTE_Y); // pravý (EN) sloupec
+        }
         console.log('[fill-pdf] footer notes drawn', {
           template: isWeekly ? 'weekly' : 'mains',
           y: noteY,

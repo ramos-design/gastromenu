@@ -14,12 +14,11 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Download, FileText, Globe, Image as ImageIcon, Pilcrow, Loader2, Zap, Layers, Printer, ChevronRight, AlertTriangle, FileWarning, Settings } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useToast } from '@/hooks/use-toast';
 import { DishFormSheet } from '@/components/dishes/dish-form-sheet';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import type { Dish } from '@/lib/types';
+import type { Dish, SocialImage, SocialItem, SocialLang } from '@/lib/types';
 import {
   Table,
   TableBody,
@@ -52,6 +51,12 @@ const MENU_LIMITS: Record<MenuVariant, { soups: number; mains: number }> = {
   weekly: { soups: 0, mains: 2 },
 };
 
+const VARIANT_LABEL: Record<MenuVariant, string> = {
+  soups: 'Polévky',
+  mains: 'Hlavní chod',
+  weekly: 'Týdenní menu',
+};
+
 
 function ExportPageContent() {
   const { menus, addMenuToHistory, allergens } = useGastro();
@@ -71,6 +76,8 @@ function ExportPageContent() {
   const [editingDish, setEditingDish] = useState<Dish | null>(null);
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
   const [bulkViewIndex, setBulkViewIndex] = useState(0);
+  const [socialImages, setSocialImages] = useState<SocialImage[]>([]);
+  const [socialViewIndex, setSocialViewIndex] = useState(0);
   const [isPreviewVisible, setIsPreviewVisible] = useState(true);
   const [hasMounted, setHasMounted] = useState(false);
 
@@ -165,12 +172,109 @@ function ExportPageContent() {
     return URL.createObjectURL(blob);
   };
 
+  // --- Sociální sítě (1080×1440 obrázek) ---
+  // Sestaví položky jedné sekce pro daný jazyk (analogie buildFieldsForVariant).
+  const buildSocialItems = (variant: MenuVariant, lang: SocialLang): SocialItem[] => {
+    const menuItems = menus[variant] || [];
+    const limit = MENU_LIMITS[variant];
+    const sorted = [...menuItems].sort((a, b) => {
+      if (a.category === 'Polévka' && b.category !== 'Polévka') return -1;
+      if (a.category !== 'Polévka' && b.category === 'Polévka') return 1;
+      return 0;
+    });
+    const mSoups = sorted.filter(d => d.category === 'Polévka').slice(0, limit.soups);
+    const mMains = sorted.filter(d => d.category === 'Hlavní jídlo' || d.category === 'Snídaně').slice(0, limit.mains);
+
+    const allergenNumbers = (ids: string[]) =>
+      ids.map(id => {
+        const a = allergens.find(x => x.id === id);
+        return a ? a.number : id;
+      }).join(', ');
+
+    return [...mSoups, ...mMains].map(dish => ({
+      // EN obrázek: když chybí překlad, padáme na český název (ať obrázek není prázdný).
+      name: (lang === 'cz' ? dish.title_cz : (dish.title_en || dish.title_cz)) || '',
+      price: `${dish.price} Kč`,
+      allergens: allergenNumbers(dish.allergens),
+    }));
+  };
+
+  const fetchSocialImage = async (variant: MenuVariant, lang: SocialLang): Promise<string> => {
+    const items = buildSocialItems(variant, lang);
+    const resp = await fetch('/api/social-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ variant, lang, items }),
+    });
+    if (!resp.ok) {
+      let detail = '';
+      try {
+        const j = await resp.json();
+        detail = j.message || JSON.stringify(j);
+      } catch { /* ignore */ }
+      throw new Error(detail || `${variant}/${lang}: Chyba ${resp.status}`);
+    }
+    const blob = await resp.blob();
+    return URL.createObjectURL(blob);
+  };
+
+  // PNG (z routy) → JPG na klientu, ať nemusíme na server přidávat sharp.
+  const pngUrlToJpeg = (url: string): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const img = new window.Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return reject(new Error('Canvas context není dostupný'));
+        // JPG nemá průhlednost → podložíme krémovou (barva pozadí šablony).
+        ctx.fillStyle = '#FFFCF0';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        canvas.toBlob(
+          b => (b ? resolve(URL.createObjectURL(b)) : reject(new Error('Převod do JPG selhal'))),
+          'image/jpeg',
+          0.92,
+        );
+      };
+      img.onerror = () => reject(new Error('Načtení obrázku selhalo'));
+      img.src = url;
+    });
+
+  const triggerDownload = (url: string, filename: string) => {
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const downloadSocial = async (img: SocialImage, format: 'png' | 'jpg') => {
+    try {
+      const url = format === 'jpg' ? await pngUrlToJpeg(img.url) : img.url;
+      triggerDownload(url, `social-${img.variant}-${img.lang}.${format}`);
+    } catch (e) {
+      console.error('Chyba při stahování social obrázku:', e);
+      toast({ variant: 'destructive', title: 'Chyba při stahování', description: e instanceof Error ? e.message : 'Chyba' });
+    }
+  };
+
+  const handleDownloadAllSocial = () => {
+    socialImages.forEach((img, i) => {
+      setTimeout(() => triggerDownload(img.url, `social-${img.variant}-${img.lang}.png`), i * 200);
+    });
+  };
+
   // Reset output when switching tabs
   useEffect(() => {
     setIsPreviewVisible(true);
     setOutput({ type: null, loading: false, success: false });
     setGeneratedPdfImage(null);
     setBulkPdfImages({ soups: null, mains: null, weekly: null });
+    setSocialImages([]);
+    setSocialViewIndex(0);
   }, [activeTab, exportMode]);
 
 
@@ -214,6 +318,7 @@ function ExportPageContent() {
     setIsPreviewVisible(false);
     setOutput({ type: type, loading: true, success: false });
     setGeneratedPdfImage(null);
+    setSocialImages([]);
 
     const onGenerationSuccess = () => {
       if (currentMenu && currentMenu.length > 0) {
@@ -343,16 +448,45 @@ function ExportPageContent() {
       }
     }
 
-    else {
-      // Simulate other generation types (post)
-      setTimeout(() => {
-        setOutput({ type: type, loading: false, success: true });
-        onGenerationSuccess();
+    else if (type === 'post') {
+      try {
+        const langs: SocialLang[] = ['cz', 'en'];
+        const variants: MenuVariant[] = exportMode === 'bulk' ? ['soups', 'mains', 'weekly'] : [activeTab];
+        const jobs = variants.flatMap(v => langs.map(l => ({ variant: v, lang: l })));
+        const results = await Promise.all(
+          jobs.map(async ({ variant, lang }) => {
+            const url = await fetchSocialImage(variant, lang);
+            return {
+              key: `${variant}-${lang}`,
+              variant,
+              lang,
+              label: `${VARIANT_LABEL[variant]} · ${lang.toUpperCase()}`,
+              url,
+            } as SocialImage;
+          }),
+        );
+        setSocialImages(results);
+        setSocialViewIndex(0);
+        setOutput({ type: 'post', loading: false, success: true });
+
+        const dishesForHistory = exportMode === 'bulk'
+          ? [...(menus.soups || []), ...(menus.mains || []), ...(menus.weekly || [])]
+          : (currentMenu || []);
+        if (dishesForHistory.length > 0) {
+          addMenuToHistory(dishesForHistory, 'post', exportMode === 'bulk' ? undefined : activeTab);
+        }
+
         toast({
-          title: "Úspěšně vygenerováno",
-          description: "Menu bylo úspěšně uloženo do historie.",
+          title: 'Obrázky vygenerovány',
+          description: exportMode === 'bulk'
+            ? 'Hotovo 6 obrázků (3 sekce × CZ/EN).'
+            : 'Hotovo CZ i EN obrázek.',
         });
-      }, 1500);
+      } catch (error) {
+        console.error('Failed to generate social images:', error);
+        toast({ variant: 'destructive', title: 'Chyba při generování', description: error instanceof Error ? error.message : 'Chyba' });
+        setOutput({ type: 'post', loading: false, success: false });
+      }
     }
   }
 
@@ -384,9 +518,6 @@ function ExportPageContent() {
     }, 400);
   };
 
-
-  const czPostImage = PlaceHolderImages.find(p => p.id === 'cz-post-placeholder');
-  const enPostImage = PlaceHolderImages.find(p => p.id === 'en-post-placeholder');
 
   const renderOutput = () => {
     if (output.loading) {
@@ -507,26 +638,74 @@ function ExportPageContent() {
             </Card>
           );
 
-        case 'post':
+        case 'post': {
+          const socialItem = socialImages[socialViewIndex];
+          if (!socialImages.length || !socialItem) return null;
           return (
             <Card className="glass-card">
-              <CardHeader><CardTitle>Výstup: Příspěvky na sociální sítě</CardTitle></CardHeader>
-              <CardContent className="grid md:grid-cols-2 gap-4">
-                {czPostImage && (
-                  <div className="space-y-2">
-                    <Image data-ai-hint="food post" src={czPostImage.imageUrl} alt="CZ post" width={600} height={600} className="rounded-lg aspect-square object-cover" />
-                    <Button className="w-full"><Download className="mr-2 h-4 w-4" /> Stáhnout CZ post</Button>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b">
+                <div className="space-y-1">
+                  <CardTitle>Sociální sítě ({socialItem.label})</CardTitle>
+                  <CardDescription>Obrázek {socialViewIndex + 1} z {socialImages.length} · 1080×1440</CardDescription>
+                </div>
+                <Button onClick={handleDownloadAllSocial} size="sm" className="bg-primary hover:bg-primary/90">
+                  <Download className="mr-2 h-4 w-4" /> Stáhnout vše (PNG)
+                </Button>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="relative group">
+                  <Image
+                    src={socialItem.url}
+                    alt={socialItem.label}
+                    width={1080}
+                    height={1440}
+                    unoptimized
+                    className="rounded-lg border shadow-xl w-full max-w-md mx-auto h-auto transition-all duration-300"
+                  />
+
+                  {/* Per-image download */}
+                  <div className="flex justify-center gap-3 mt-6">
+                    <Button variant="outline" size="sm" onClick={() => downloadSocial(socialItem, 'png')}>
+                      <Download className="mr-2 h-4 w-4" /> Stáhnout PNG
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => downloadSocial(socialItem, 'jpg')}>
+                      <Download className="mr-2 h-4 w-4" /> Stáhnout JPG
+                    </Button>
                   </div>
-                )}
-                {enPostImage && (
-                  <div className="space-y-2">
-                    <Image data-ai-hint="food post" src={enPostImage.imageUrl} alt="EN post" width={600} height={600} className="rounded-lg aspect-square object-cover" />
-                    <Button className="w-full"><Download className="mr-2 h-4 w-4" /> Stáhnout EN post</Button>
-                  </div>
-                )}
+
+                  {socialImages.length > 1 && (
+                    <>
+                      {/* Carousel dots */}
+                      <div className="flex justify-center gap-2 mt-6">
+                        {socialImages.map((_, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => setSocialViewIndex(idx)}
+                            className={`h-2.5 rounded-full transition-all duration-300 ${socialViewIndex === idx ? 'w-8 bg-primary' : 'w-2.5 bg-muted-foreground/30 hover:bg-muted-foreground/50'}`}
+                          />
+                        ))}
+                      </div>
+
+                      {/* Prev / next */}
+                      <button
+                        onClick={() => setSocialViewIndex(prev => (prev > 0 ? prev - 1 : socialImages.length - 1))}
+                        className="absolute left-4 top-1/3 -translate-y-1/2 bg-white/80 hover:bg-white p-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                      </button>
+                      <button
+                        onClick={() => setSocialViewIndex(prev => (prev < socialImages.length - 1 ? prev + 1 : 0))}
+                        className="absolute right-4 top-1/3 -translate-y-1/2 bg-white/80 hover:bg-white p-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                      </button>
+                    </>
+                  )}
+                </div>
               </CardContent>
             </Card>
           );
+        }
         case 'web':
           return (
             <Card className="glass-card">
@@ -754,16 +933,24 @@ function ExportPageContent() {
 
                 <Button
                   variant="outline"
-                  disabled={true}
-                  className="h-auto py-6 px-4 flex items-center justify-start gap-4 transition-all border-2 w-full text-left opacity-60 cursor-not-allowed"
+                  onClick={() => handleGenerate('post')}
+                  disabled={output.loading}
+                  className="h-auto py-6 px-4 flex items-center justify-start gap-4 transition-all border-2 w-full text-left hover:bg-muted/50"
                 >
-                  <ImageIcon className="w-8 h-8 text-pink-500/50" />
+                  {output.loading && output.type === 'post' ? (
+                    <Loader2 className="w-8 h-8 animate-spin text-pink-500" />
+                  ) : (
+                    <ImageIcon className="w-8 h-8 text-pink-500" />
+                  )}
                   <div className="space-y-1">
                     <span className="font-bold block flex items-center gap-2">
                       Sociální sítě
-                      <Badge variant="secondary" className="text-xs bg-muted text-muted-foreground">Již brzy</Badge>
                     </span>
-                    <span className="text-xs text-muted-foreground font-normal block">Příspěvky pro Instagram/FB</span>
+                    <span className="text-xs text-muted-foreground font-normal block">
+                      {exportMode === 'bulk'
+                        ? 'Obrázky 1080×1440 pro všechny sekce (CZ + EN)'
+                        : `Obrázek 1080×1440 — ${VARIANT_LABEL[activeTab]} (CZ + EN)`}
+                    </span>
                   </div>
                 </Button>
 

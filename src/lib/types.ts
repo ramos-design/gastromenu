@@ -36,4 +36,22 @@ export type PdfTemplate = {
   uploadedAt: string;
 };
 
+// Jedna položka pro sociální export (vstup do /api/social-image).
+export type SocialItem = {
+  name: string;
+  price: string;
+  allergens: string;
+};
+
+export type SocialLang = 'cz' | 'en';
+
+// Jeden vygenerovaný obrázek pro sociální sítě (náhled + stažení).
+export type SocialImage = {
+  key: string; // unikátní klíč varianta-jazyk, např. "mains-cz"
+  variant: MenuVariant;
+  lang: SocialLang;
+  label: string; // popisek do náhledu, např. "Hlavní chod · CZ"
+  url: string; // objectURL PNG blobu
+};
+
 

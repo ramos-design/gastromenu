@@ -12,7 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Download, FileText, Globe, Image as ImageIcon, Pilcrow, Loader2, Zap, Layers, Printer, ChevronRight, AlertTriangle, FileWarning, Settings, Cloud } from 'lucide-react';
+import { Download, FileText, Globe, Image as ImageIcon, Pilcrow, Loader2, Zap, Layers, Printer, ChevronRight, AlertTriangle, FileWarning, Settings } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useToast } from '@/hooks/use-toast';
@@ -42,7 +42,6 @@ type BulkPdfOutput = {
   weekly: string | null;
 };
 
-type PdfSource = 'placid' | 'custom';
 type PdfKind = 'image' | 'pdf';
 const PDF_TEMPLATES_BUCKET = 'menu-templates';
 
@@ -74,21 +73,11 @@ function ExportPageContent() {
   const [bulkViewIndex, setBulkViewIndex] = useState(0);
   const [isPreviewVisible, setIsPreviewVisible] = useState(true);
   const [hasMounted, setHasMounted] = useState(false);
-  const [pdfSource, setPdfSource] = useState<PdfSource>('placid');
 
 
   useEffect(() => {
     setHasMounted(true);
-    try {
-      const stored = window.localStorage.getItem('pdfSource');
-      if (stored === 'placid' || stored === 'custom') setPdfSource(stored);
-    } catch { /* ignore */ }
   }, []);
-
-  useEffect(() => {
-    if (!hasMounted) return;
-    try { window.localStorage.setItem('pdfSource', pdfSource); } catch { /* ignore */ }
-  }, [pdfSource, hasMounted]);
 
   const getTemplateUrl = (variant: MenuVariant): string | null => {
     if (!user) return null;
@@ -232,61 +221,11 @@ function ExportPageContent() {
       }
     };
 
-    const constructParams = (variant: MenuVariant, target?: string) => {
-      const menuItems = menus[variant] || [];
-      const limit = MENU_LIMITS[variant];
-      const sorted = [...menuItems].sort((a, b) => {
-        if (a.category === 'Polévka' && b.category !== 'Polévka') return -1;
-        if (a.category !== 'Polévka' && b.category === 'Polévka') return 1;
-        return 0;
-      });
-      const mSoups = sorted.filter(d => d.category === 'Polévka').slice(0, limit.soups);
-      const mMains = sorted.filter(d => d.category === 'Hlavní jídlo' || d.category === 'Snídaně').slice(0, limit.mains);
-
-      const params = new URLSearchParams();
-      params.append('menuType', variant);
-      if (target) params.append('target', target);
-
-      mSoups.forEach((dish, idx) => {
-        const i = idx + 1;
-        params.append(`soup${i}_cz`, dish.title_cz || '');
-        params.append(`soup${i}_en`, dish.title_en || '');
-        params.append(`soup${i}_price`, dish.price.toString());
-        const dishAllergens = dish.allergens.map(id => {
-          const allergen = allergens.find(a => a.id === id);
-          return allergen ? allergen.number : id;
-        }).join(', ');
-        params.append(`soup${i}_allergens`, dishAllergens);
-      });
-
-      mMains.forEach((dish, idx) => {
-        const i = idx + 1;
-        params.append(`main${i}_cz`, dish.title_cz || '');
-        params.append(`main${i}_en`, dish.title_en || '');
-        params.append(`main${i}_price`, dish.price.toString());
-        const dishAllergens = dish.allergens.map(id => {
-          const allergen = allergens.find(a => a.id === id);
-          return allergen ? allergen.number : id;
-        }).join(', ');
-        params.append(`main${i}_allergens`, dishAllergens);
-      });
-      return params;
-    };
-
     if (type === 'pdf' || type === 'bulk-pdf') {
       try {
-        const fetchViaPlacid = async (variant: MenuVariant) => {
-          const params = constructParams(variant);
-          const response = await fetch(`/api/export-menu?${params.toString()}`);
-          if (!response.ok) throw new Error(`Chyba u ${variant}: ${response.statusText}`);
-          const data = await response.json();
-          return data.imageUrl as string;
-        };
+        const fetchOne = (variant: MenuVariant) => fetchCustomPdfUrl(variant);
 
-        const fetchOne = (variant: MenuVariant) =>
-          pdfSource === 'custom' ? fetchCustomPdfUrl(variant) : fetchViaPlacid(variant);
-
-        const kind: PdfKind = pdfSource === 'custom' ? 'pdf' : 'image';
+        const kind: PdfKind = 'pdf';
 
         if (exportMode === 'bulk') {
           setOutput({ type: 'bulk-pdf', loading: true, success: false });
@@ -749,40 +688,18 @@ function ExportPageContent() {
                 <CardDescription>Vytvořte z menu podklady</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
-                {/* PDF Source Switcher */}
+                {/* PDF Templates info */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">Zdroj PDF</Label>
+                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">PDF šablony</Label>
                     <Link href="/nastaveni" className="text-xs text-primary hover:underline flex items-center gap-1">
                       <Settings className="h-3 w-3" /> Šablony
                     </Link>
                   </div>
-                  <div className="bg-slate-200/50 p-1 rounded-xl flex gap-1 border border-slate-300/50">
-                    <button
-                      onClick={() => setPdfSource('placid')}
-                      className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all duration-200 flex items-center justify-center gap-1.5 ${pdfSource === 'placid'
-                        ? 'bg-primary text-white shadow'
-                        : 'text-slate-500 hover:text-slate-700 hover:bg-white/30'
-                        }`}
-                    >
-                      <Cloud className="h-3.5 w-3.5" /> Placid (n8n)
-                    </button>
-                    <button
-                      onClick={() => setPdfSource('custom')}
-                      className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all duration-200 flex items-center justify-center gap-1.5 ${pdfSource === 'custom'
-                        ? 'bg-primary text-white shadow'
-                        : 'text-slate-500 hover:text-slate-700 hover:bg-white/30'
-                        }`}
-                    >
-                      <FileText className="h-3.5 w-3.5" /> Vlastní PDF
-                    </button>
-                  </div>
-                  {pdfSource === 'custom' && (
-                    <p className="text-[11px] text-muted-foreground mt-2 leading-snug">
-                      Vyplní vaši PDF šablonu (AcroForm pole) přímo v appce. Nahrát šablony můžete v{' '}
-                      <Link href="/nastaveni" className="text-primary hover:underline">Nastavení</Link>.
-                    </p>
-                  )}
+                  <p className="text-[11px] text-muted-foreground leading-snug">
+                    Vyplní vaši PDF šablonu (AcroForm pole) přímo v appce. Nahrát šablony můžete v{' '}
+                    <Link href="/nastaveni" className="text-primary hover:underline">Nastavení</Link>.
+                  </p>
                 </div>
 
                 {/* Mode Switcher */}

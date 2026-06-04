@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { PDFDocument, PDFFont, TextAlignment } from 'pdf-lib';
+import { PDFDocument, PDFFont, TextAlignment, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 
 export const runtime = 'nodejs';
@@ -46,6 +46,24 @@ const PRICE_LEFT_SHIFT = 18;
 const NAME_FIELD_EXTRA = 24;
 // O kolik posunout pole alergenů dolů, ať skončí pod (případně 2řádkovým) názvem a nepřekryje se.
 const ALLERGEN_DOWN_SHIFT = 20;
+
+// --- Patičková poznámka (jen šablony Hlavní chod + Týdenní menu, tj. s poli mainN_) ---
+// Text se vykreslí AŽ PO flatten(), takže je vždy navrch a nic ho nepřekreslí.
+// Kreslí se DVĚ verze: česká do levého sloupce, anglická do pravého — každá vystředěná
+// ve svém sloupci, takže ani jedna nepřekročí střed stránky.
+const FOOTER_NOTE_TEXT_CZ = 'K týdennímu menu Romerquelle voda 0,33l za 45,-';
+const FOOTER_NOTE_TEXT_EN = 'With the weekly menu Romerquelle water 0.33l for 45,-';
+const FOOTER_NOTE_SIZE = 8; // velikost fontu poznámky (malým)
+
+// Vodorovné středy sloupců jako podíl šířky stránky (levý = CZ, pravý = EN).
+const FOOTER_NOTE_LEFT_FRAC = 0.25;
+const FOOTER_NOTE_RIGHT_FRAC = 0.75;
+
+// Svislá pozice (PDF body od spodního okraje):
+// Týdenní menu (2 jídla) → NAD řádkem "...podáváme od 11-15 hodin".
+const FOOTER_NOTE_WEEKLY_Y = 210;
+// Hlavní chod (5 jídel) → dole nad spodní oddělovací čarou.
+const FOOTER_NOTE_MAIN_Y = 96;
 
 // Cenová pole vždy zakončit " Kč" (pokud tam měna ještě není a hodnota není prázdná).
 function formatFieldValue(fieldName: string, value: string): string {
@@ -357,6 +375,45 @@ export async function POST(request: NextRequest) {
       } catch (e) {
         console.warn('[fill-pdf] flatten failed, keeping interactive form', e);
       }
+    }
+
+    // Patičková poznámka — jen u šablon Hlavní chod / Týdenní menu (mají pole mainN_).
+    // Kreslíme AŽ TADY (po flatten), aby byla vždy na vrchu a nepřekryla ji žádná appearance pole.
+    try {
+      const mainSlot = (n: string) => {
+        const m = /^main(\d+)_cz$/i.exec(n);
+        return m ? parseInt(m[1], 10) : 0;
+      };
+      const maxMainSlot = Math.max(0, ...Array.from(fieldNames).map(mainSlot));
+      if (maxMainSlot >= 1) {
+        // ≤2 jídla → Týdenní menu (poznámka nad patičkovou větou);
+        // ≥3 jídel → Hlavní chod (poznámka dole nad spodní čarou).
+        const isWeekly = maxMainSlot <= 2;
+        const noteY = isWeekly ? FOOTER_NOTE_WEEKLY_Y : FOOTER_NOTE_MAIN_Y;
+
+        const page = pdfDoc.getPage(0);
+        const { width } = page.getSize();
+        // Vykreslí text vystředěný kolem zadaného vodorovného podílu šířky stránky.
+        const drawCentered = (text: string, frac: number) => {
+          const tw = bodyFont.widthOfTextAtSize(text, FOOTER_NOTE_SIZE);
+          page.drawText(text, {
+            x: Math.max(0, width * frac - tw / 2),
+            y: noteY,
+            size: FOOTER_NOTE_SIZE,
+            font: bodyFont,
+            color: rgb(0.25, 0.25, 0.25),
+          });
+        };
+        drawCentered(FOOTER_NOTE_TEXT_CZ, FOOTER_NOTE_LEFT_FRAC); // levý (CZ) sloupec
+        drawCentered(FOOTER_NOTE_TEXT_EN, FOOTER_NOTE_RIGHT_FRAC); // pravý (EN) sloupec
+        console.log('[fill-pdf] footer notes drawn', {
+          template: isWeekly ? 'weekly' : 'mains',
+          y: noteY,
+          size: FOOTER_NOTE_SIZE,
+        });
+      }
+    } catch (e) {
+      console.warn('[fill-pdf] footer note draw failed', e);
     }
 
     let out: Uint8Array;

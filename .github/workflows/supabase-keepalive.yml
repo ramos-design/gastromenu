@@ -1,0 +1,60 @@
+name: Supabase keep-alive
+
+# Supabase free tier uspí projekt po 7 dnech bez aktivity.
+# Tenhle workflow každý den zapíše timestamp do tabulky public.keep_alive,
+# takže se projekt nikdy neuspí. Běží na GitHubu — nezávisle na tom,
+# jestli je aplikace zrovna nasazená nebo běží.
+
+on:
+  schedule:
+    - cron: '17 4 * * *' # každý den 04:17 UTC
+  workflow_dispatch: # + ruční spuštění z Actions tabu
+
+permissions:
+  contents: write
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          response=$(curl -sS -w $'\n%{http_code}' -X POST \
+            "${SUPABASE_URL%/}/rest/v1/rpc/keep_alive_ping" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"p_source":"github-actions"}')
+          code=$(printf '%s' "$response" | tail -n1)
+          body=$(printf '%s' "$response" | sed '$d')
+          echo "HTTP $code — $body"
+          if [ "$code" != "200" ]; then
+            echo "::error::Supabase ping selhal (HTTP $code)"
+            exit 1
+          fi
+
+      # GitHub vypíná naplánované workflows v repozitářích, kde 60 dní nikdo
+      # nic nepushnul. Jednou za měsíc uděláme prázdný commit, aby se
+      # počítadlo resetovalo a cron běžel dál bez zásahu.
+      - name: Keep the schedule alive
+        if: github.event_name == 'schedule'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Monthly empty commit
+        if: github.event_name == 'schedule'
+        run: |
+          set -euo pipefail
+          if [ "$(date -u +%d)" != "01" ]; then
+            echo "Není první v měsíci — přeskakuji."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --allow-empty -m "chore: keep GitHub Actions schedule enabled"
+          git push

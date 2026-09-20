@@ -372,12 +372,9 @@ function ExportPageContent() {
           throw new Error("Export na web je dostupný pouze v hromadném režimu.");
         }
 
-        const bulkParams = new URLSearchParams();
-        bulkParams.append('target', 'web');
-        bulkParams.append('menuType', 'bulk');
-
-        // Helper to add category data to bulkParams
-        const addCategoryToBulk = (variant: MenuVariant, prefix: string) => {
+        // Na web posíláme jen název a cenu. Alergeny ani anglické názvy web
+        // nemá kam zobrazit, takže je vynecháváme (potvrzeno s klientem).
+        const buildWebSection = (variant: MenuVariant) => {
           const menuItems = menus[variant] || [];
           const limit = MENU_LIMITS[variant];
           const sorted = [...menuItems].sort((a, b) => {
@@ -387,39 +384,34 @@ function ExportPageContent() {
           });
           const mSoups = sorted.filter(d => d.category === 'Polévka').slice(0, limit.soups);
           const mMains = sorted.filter(d => d.category === 'Hlavní jídlo' || d.category === 'Snídaně').slice(0, limit.mains);
-
-          mSoups.forEach((dish, idx) => {
-            const i = idx + 1;
-            bulkParams.append(`${prefix}_soup${i}_cz`, dish.title_cz || '');
-            bulkParams.append(`${prefix}_soup${i}_price`, dish.price.toString());
-            const dishAllergens = dish.allergens.map(id => {
-              const allergen = allergens.find(a => a.id === id);
-              return allergen ? allergen.number : id;
-            }).join(', ');
-            bulkParams.append(`${prefix}_soup${i}_allergens`, dishAllergens);
-          });
-
-          mMains.forEach((dish, idx) => {
-            const i = idx + 1;
-            bulkParams.append(`${prefix}_main${i}_cz`, dish.title_cz || '');
-            bulkParams.append(`${prefix}_main${i}_price`, dish.price.toString());
-            const dishAllergens = dish.allergens.map(id => {
-              const allergen = allergens.find(a => a.id === id);
-              return allergen ? allergen.number : id;
-            }).join(', ');
-            bulkParams.append(`${prefix}_main${i}_allergens`, dishAllergens);
-          });
+          return [...mSoups, ...mMains].map(dish => ({
+            title: dish.title_cz || '',
+            price: dish.price,
+          }));
         };
 
-        // Add all categories
-        addCategoryToBulk('soups', 'soups');
-        addCategoryToBulk('mains', 'mains');
-        addCategoryToBulk('weekly', 'weekly');
+        const payload = {
+          sections: {
+            soups: buildWebSection('soups'),
+            mains: buildWebSection('mains'),
+            weekly: buildWebSection('weekly'),
+          },
+        };
 
-        const response = await fetch(`/api/export-menu?${bulkParams.toString()}`);
-        if (!response.ok) throw new Error(`Chyba při hromadném exportu: ${response.statusText}`);
+        console.log('[export-web client] odesílám na web:', payload);
 
-        await response.json();
+        const response = await fetch('/api/export-web', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        const result = await response.json().catch(() => null);
+
+        if (!response.ok || !result?.success) {
+          console.error('[export-web client] server vrátil chybu:', result);
+          throw new Error(result?.message || `Chyba ${response.status} ${response.statusText}`);
+        }
 
         setOutput({ type: 'web', loading: false, success: true });
 
@@ -432,8 +424,8 @@ function ExportPageContent() {
         addMenuToHistory(allDishes, 'web');
 
         toast({
-          title: "Hromadný export na web dokončen",
-          description: "Všechny sekce menu (CZ + ceny + alergeny) byly odeslány v jednom balíku.",
+          title: "Menu propsáno na web",
+          description: result.message,
         });
 
       } catch (error) {

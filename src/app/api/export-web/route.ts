@@ -51,7 +51,7 @@ type ItemResult = {
     position: number;
     slug: string;
     id: number;
-    status: 'updated' | 'skipped' | 'failed';
+    status: 'updated' | 'hidden' | 'failed';
     title?: string;
     message?: string;
 };
@@ -92,6 +92,44 @@ function authHeader(): string | null {
     return 'Basic ' + Buffer.from(`${user}:${normalized}`).toString('base64');
 }
 
+// Nevyplněná pozice: příspěvek přepneme na koncept, čímž zmizí z webu.
+// Nemažeme ho — celé mapování stojí na pevných ID, takže o ně nesmíme přijít.
+// Až se pozice zase vyplní, updateOne ho vrátí na 'publish'.
+async function hideOne(
+    post: { id: number; slug: string },
+    auth: string,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+    try {
+        const resp = await fetch(`${WP_BASE}/wp-json/wp/v2/jidelni-menu/${post.id}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: auth,
+            },
+            body: JSON.stringify({ status: 'draft' }),
+            signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        });
+
+        if (!resp.ok) {
+            let detail = '';
+            try {
+                const j = await resp.json();
+                detail = j?.message || JSON.stringify(j);
+            } catch {
+                detail = await resp.text().catch(() => '');
+            }
+            return { ok: false, message: `HTTP ${resp.status}: ${detail || resp.statusText}` };
+        }
+        return { ok: true };
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes('timeout') || msg.includes('aborted') || msg.includes('TimeoutError')) {
+            return { ok: false, message: `Web neodpověděl do ${REQUEST_TIMEOUT_MS / 1000} s.` };
+        }
+        return { ok: false, message: msg };
+    }
+}
+
 async function updateOne(
     post: { id: number; slug: string },
     dish: IncomingDish,
@@ -101,7 +139,9 @@ async function updateOne(
     const priceRaw = dish.price;
     const price = typeof priceRaw === 'string' ? Number(priceRaw) : priceRaw;
 
-    const body: Record<string, unknown> = { title };
+    // status: 'publish' posíláme vždy — kdyby byla položka z dřívějška
+    // skrytá jako koncept, tímhle se zase vrátí na web.
+    const body: Record<string, unknown> = { title, status: 'publish' };
     // ACF pole `cena` je číslo. Když cena chybí nebo není číslo, radši ji
     // vůbec neposíláme, než abychom na web propsali 0 Kč.
     if (typeof price === 'number' && Number.isFinite(price)) {
@@ -195,14 +235,20 @@ export async function POST(request: NextRequest) {
             const dish = dishes[i];
             const base = { section, position: i + 1, slug: post.slug, id: post.id };
 
-            // Prázdná pozice: raději necháme na webu původní jídlo, než abychom
-            // tam propsali prázdný nadpis a rozbili vzhled stránky.
+            // Prázdná pozice: schováme ji, ať na webu nezůstane viset staré jídlo.
             if (!dish || !(dish.title || '').trim()) {
-                results.push({
-                    ...base,
-                    status: 'skipped',
-                    message: 'V appce není pro tuhle pozici jídlo — na webu zůstal původní text.',
-                });
+                const hid = await hideOne(post, auth);
+                if (hid.ok) {
+                    results.push({
+                        ...base,
+                        status: 'hidden',
+                        message: 'V appce není pro tuhle pozici jídlo — na webu byla skryta.',
+                    });
+                    console.log(`[export-web] SKRYTO ${post.slug} (${post.id})`);
+                } else {
+                    results.push({ ...base, status: 'failed', message: `Nepodařilo se skrýt: ${hid.message}` });
+                    console.error(`[export-web] SKRYTI SELHALO ${post.slug} (${post.id}): ${hid.message}`);
+                }
                 continue;
             }
 
@@ -219,17 +265,17 @@ export async function POST(request: NextRequest) {
 
     const updated = results.filter(r => r.status === 'updated');
     const failed = results.filter(r => r.status === 'failed');
-    const skipped = results.filter(r => r.status === 'skipped');
+    const hidden = results.filter(r => r.status === 'hidden');
 
     console.log(
-        `[export-web] hotovo — zapsáno ${updated.length}, selhalo ${failed.length}, přeskočeno ${skipped.length}`,
+        `[export-web] hotovo — zapsáno ${updated.length}, selhalo ${failed.length}, skryto ${hidden.length}`,
     );
 
     // Sestavíme lidsky čitelné shrnutí, ať uživatel v appce hned vidí,
     // co přesně se nepovedlo, a nemusí lézt do konzole.
     const describe = (r: ItemResult) => `${SECTION_LABEL[r.section]} #${r.position}`;
     const failSummary = failed.map(r => `${describe(r)}: ${r.message}`).join(' · ');
-    const skipSummary = skipped.map(describe).join(', ');
+    const hiddenSummary = hidden.map(describe).join(', ');
 
     if (failed.length > 0) {
         return NextResponse.json(
@@ -237,7 +283,7 @@ export async function POST(request: NextRequest) {
                 success: false,
                 updated: updated.length,
                 failed: failed.length,
-                skipped: skipped.length,
+                hidden: hidden.length,
                 results,
                 message:
                     updated.length > 0
@@ -252,11 +298,11 @@ export async function POST(request: NextRequest) {
         success: true,
         updated: updated.length,
         failed: 0,
-        skipped: skipped.length,
+        hidden: hidden.length,
         results,
         message:
-            skipped.length > 0
-                ? `Na web propsáno ${updated.length} položek. Nevyplněné pozice (${skipSummary}) zůstaly na webu beze změny.`
+            hidden.length > 0
+                ? `Na web propsáno ${updated.length} položek. Nevyplněné pozice (${hiddenSummary}) byly na webu skryty.`
                 : `Na web propsáno všech ${updated.length} položek.`,
     });
 }

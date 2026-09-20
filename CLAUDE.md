@@ -94,7 +94,55 @@ Reakce: rozdělil jsem fonty per-field (Calistoga pro názvy, Inter pro čísla)
 ## TODO po dokončení font finetuningu
 
 - [ ] Vrátit per-user RLS izolaci v Storage policy (jakmile bude flow stabilní)
-- [ ] Smazat n8n `/api/export-menu` route po úplném přechodu (zatím necháno jako fallback)
+- [x] Smazat n8n `/api/export-menu` route — hotovo 2026-09-20, n8n VPS spadl (viz níže)
 - [ ] Případně přidat PNG render z PDF (přes pdfjs/pdf-to-png) — uživatel zatím odložil ("Jen PDF zatím")
 - [ ] Ověřit že `fonts/` se dostane do production buildu
 - [ ] Lépe zarovnat / format empty allergens (nezobrazovat "/ /" pro prázdné)
+
+
+## Export menu na web — přímý zápis do WordPressu (2026-09-20)
+
+n8n VPS `n8n.srv1004354.hstgr.cloud` (72.60.177.159) přestal odpovídat —
+neodpovídá na ICMP ani na portech 80/443/5678, DNS se překládá. Poslední úspěšný
+zápis na web proběhl 6. 9. 2026. Tím spadl export na web i Placid fallback pro PDF.
+
+Řešení: routa [src/app/api/export-web/route.ts](src/app/api/export-web/route.ts)
+zapisuje do WordPressu napřímo, n8n je úplně vyřazené.
+
+### Cíl na webu
+
+Web klienta `nogluten-noproblem.cz` je WordPress + Elementor. Menu drží vlastní typ
+obsahu `jidelni-menu` s **9 pevnými příspěvky**, které se přepisují na místě —
+nikdy se nezakládají nové, protože ID jsou zadrátovaná v Elementor šabloně.
+
+| Sekce v appce | Pozice | slug | ID | taxonomie |
+|---|---|---|---|---|
+| Polévky | 1, 2 | `polevka1`, `polevka2` | 497, 812 | 12 |
+| Hlavní chod | 1–5 | `jidlo1`–`jidlo5` | 888, 504, 503, 814, 889 | 8 |
+| Týdenní menu | 1, 2 | `tydennimenu2`, `jidlo6` | 2394, 899 | 13 |
+
+Zapisuje se název jídla → `title` a cena → ACF pole `cena`. **Alergeny ani anglické
+názvy se neposílají** — web pro ně nemá pole (rozhodnutí klienta).
+
+### Chování
+
+- vyplněná pozice → `title` + `acf.cena` + `status: publish` (vrátí i dřív skrytou)
+- prázdná pozice → `status: draft`, tedy skrytí; příspěvek se **nemaže**, ať nepřijdeme o ID
+- zápisy jdou sekvenčně kvůli rate limitu iThemes Security, timeout 20 s
+- chyby se hlásí po jednotlivých položkách do UI i do logu `[export-web]`
+
+### Env proměnné (server-side, BEZ `NEXT_PUBLIC_`)
+
+```
+WP_API_BASE=https://www.nogluten-noproblem.cz
+WP_USERNAME=<wp uzivatel>
+WP_APP_PASSWORD=<aplikacni heslo z WP: Uzivatele -> profil -> Aplikacni hesla>
+```
+
+Nastavené v `.env.local` i na Vercelu (projekt `noglutens-projects/gastromenu`).
+
+### Pozor
+
+`src/middleware.ts` hlídá jen stránky, **`/api/*` nepokrývá**. Routa si proto ověřuje
+Supabase session sama přes `getUser()`. Kdyby se přidávaly další API routy, které něco
+mění, musí si auth ošetřit taky — jinak jsou veřejné.
